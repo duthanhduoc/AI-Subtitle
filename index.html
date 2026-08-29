@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SRT Translator</title>
+  <style>
+    :root { font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; color: #eef2ff; background: #0d1020; }
+    * { box-sizing: border-box; }
+    body { min-height: 100vh; margin: 0; background: radial-gradient(circle at 20% 0%, #24244d, transparent 38%), #0d1020; }
+    .shell { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 48px 0 56px; }
+    .eyebrow { margin: 0 0 10px; color: #a78bfa; font-size: .78rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.7rem); letter-spacing: -.05em; line-height: 1; }
+    .intro { max-width: 650px; margin: 16px 0 32px; color: #a8afca; line-height: 1.65; }
+    .grid { display: grid; grid-template-columns: minmax(280px, .8fr) minmax(0, 1.2fr); gap: 18px; }
+    .card { border: 1px solid #2d3150; border-radius: 22px; padding: 22px; background: rgba(22, 25, 48, .84); box-shadow: 0 24px 70px rgba(0,0,0,.22); }
+    .card h2 { margin: 0 0 18px; font-size: 1rem; }
+    label { display: block; margin: 0 0 8px; color: #c5cbe1; font-size: .86rem; font-weight: 700; }
+    textarea, select, button { font: inherit; }
+    textarea, select { width: 100%; border: 1px solid #393e62; border-radius: 12px; color: #f4f5ff; background: #11152b; outline: none; }
+    textarea:focus, select:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,.16); }
+    #context { min-height: 132px; resize: vertical; padding: 13px; line-height: 1.5; }
+    #output { min-height: 475px; resize: vertical; padding: 15px; font: .86rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    select { padding: 12px; }
+    .file { display: flex; align-items: center; gap: 10px; border: 1px dashed #525a8b; border-radius: 13px; padding: 14px; color: #adb5d3; cursor: pointer; background: #11152b; }
+    .file:hover { border-color: #9b7aff; }
+    .file input { display: none; }
+    .file strong { overflow: hidden; color: #f4f5ff; text-overflow: ellipsis; white-space: nowrap; }
+    .field { margin-bottom: 18px; }
+    .options { display: flex; gap: 16px; align-items: center; margin: 0 0 22px; color: #c5cbe1; font-size: .88rem; }
+    .options label { display: flex; align-items: center; gap: 8px; margin: 0; font-weight: 500; }
+    input[type="checkbox"] { width: 17px; height: 17px; accent-color: #8b5cf6; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    button { border: 0; border-radius: 11px; padding: 12px 16px; color: white; font-weight: 800; cursor: pointer; }
+    button.primary { background: linear-gradient(135deg, #8b5cf6, #6366f1); }
+    button.secondary { background: #2b3155; }
+    button:disabled { cursor: not-allowed; opacity: .45; }
+    .status { margin-top: 20px; }
+    .status-row { display: flex; justify-content: space-between; margin-bottom: 8px; color: #aeb6d3; font-size: .82rem; }
+    .bar { height: 8px; overflow: hidden; border-radius: 99px; background: #282d4a; }
+    #progressBar { width: 0%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #8b5cf6, #22d3ee); transition: width .25s ease; }
+    #message { min-height: 20px; margin-top: 10px; color: #aeb6d3; font-size: .82rem; }
+    .hint { margin: 12px 0 0; color: #747d9e; font-size: .78rem; line-height: 1.5; }
+    @media (max-width: 780px) { .shell { padding-top: 30px; } .grid { grid-template-columns: 1fr; } #output { min-height: 360px; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <p class="eyebrow">Gemini · SRT translator</p>
+    <h1>Dịch phụ đề, giữ nguyên nhịp phim.</h1>
+    <p class="intro">Tải lên file SRT, thêm ngữ cảnh phim và để Gemini dịch từng phần. Kết quả sẽ xuất hiện dần để bạn theo dõi.</p>
+    <section class="grid">
+      <div class="card">
+        <h2>Thiết lập bản dịch</h2>
+        <div class="field">
+          <label for="srtFile">File phụ đề (.srt)</label>
+          <label class="file" for="srtFile"><span>↑</span><strong id="fileName">Chọn file SRT</strong><input id="srtFile" type="file" accept=".srt,text/plain" /></label>
+        </div>
+        <div class="field">
+          <label for="context">Ngữ cảnh phim</label>
+          <textarea id="context" placeholder="Ví dụ: Phim tâm lý tội phạm, bối cảnh hiện đại ở Mỹ. Giữ giọng điệu tự nhiên, căng thẳng..."></textarea>
+        </div>
+        <div class="field">
+          <label for="model">Model Gemini</label>
+          <select id="model">
+            <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite</option>
+            <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash-Lite</option>
+          </select>
+        </div>
+        <div class="options">
+          <label><input id="adult" type="checkbox" checked /> Adult</label>
+          <span>Cho phép ngữ cảnh tục tĩu, dâm đãng</span>
+        </div>
+        <div class="actions">
+          <button class="primary" id="translate" type="button">Bắt đầu dịch</button>
+          <button class="secondary" id="clear" type="button">Xóa</button>
+        </div>
+        <div class="status">
+          <div class="status-row"><span id="statusText">Chưa bắt đầu</span><span id="percent">0%</span></div>
+          <div class="bar"><div id="progressBar"></div></div>
+          <div id="message" role="status"></div>
+        </div>
+        <p class="hint">API key được đọc từ <code>api.txt</code> trong thư mục app. Không public thư mục này vì key có thể bị xem trong trình duyệt.</p>
+      </div>
+      <div class="card">
+        <h2>Kết quả SRT</h2>
+        <textarea id="output" placeholder="Bản dịch sẽ hiển thị ở đây..." spellcheck="false"></textarea>
+        <div class="actions" style="margin-top: 14px">
+          <button class="secondary" id="copy" type="button" disabled>Copy</button>
+          <button class="secondary" id="download" type="button" disabled>Download .srt</button>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
