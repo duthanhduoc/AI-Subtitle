@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && vite build --config vite.extension.config.ts && vite build --config vite.worker.config.ts",
+    "build": "vite build && vite build --config vite.extension.config.ts && vite build --config vite.videojs.config.ts && vite build --config vite.worker.config.ts",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -31,6 +31,7 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
+    "@videojs/html": "^10.0.0-beta.32",
     "hls.js": "^1.6.15"
   }
 }

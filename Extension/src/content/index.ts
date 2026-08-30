@@ -1,6 +1,7 @@
 import { discover, getVideo } from "./discovery";
 import { isMessage, type Reply } from "../shared/messages";
 import { openPlayer } from "../pip/player";
+import { openVideoDialog } from "./dialog";
 import { sessionForUrl, type SubtitleSession } from "./subtitle-session";
 
 // Content-script state lives with the tab, not the short-lived popup. It is
@@ -43,6 +44,37 @@ if (!contentWindow.__customPipContentLoaded) {
         subtitleOffset = Number.isFinite(message.offset) ? message.offset : 0;
         sendResponse({ ok: true, value: null });
         return;
+      }
+
+      if (message.type === "OPEN_DIALOG") {
+        const video = message.id ? getVideo(message.id) : undefined;
+        const url = message.url ?? video?.currentSrc;
+        if (!url || url.startsWith("blob:")) {
+          sendResponse({
+            ok: false,
+            error:
+              "This video has no reusable URL. Use a detected HLS stream instead.",
+          });
+          return;
+        }
+        video?.pause();
+        void chrome.runtime
+          .sendMessage({ type: "ENSURE_VIDEOJS_MAIN" })
+          .catch(() => undefined)
+          .then(() =>
+            openVideoDialog(url, message.subtitles, message.subtitleName),
+          )
+          .then(() => sendResponse({ ok: true, value: null }))
+          .catch((error: unknown) =>
+            sendResponse({
+              ok: false,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Could not create the video dialog.",
+            }),
+          );
+        return true;
       }
 
       // IDs are intentionally ephemeral; re-resolve after the user's selection

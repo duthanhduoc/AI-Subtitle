@@ -12,6 +12,13 @@ export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export type Message =
   | { type: "GET_CANDIDATES" }
   | { type: "OPEN_PIP"; id: string; subtitles?: string; subtitleName?: string }
+  | {
+      type: "OPEN_DIALOG";
+      url?: string;
+      id?: string;
+      subtitles?: string;
+      subtitleName?: string;
+    }
   | { type: "SET_OFFSET"; offset: number };
 
 export type HlsUrl = { url: string; frameId: number; seenAt: number };
@@ -25,6 +32,9 @@ export function isMessage(value: unknown): value is Message {
     message.type === "GET_CANDIDATES" ||
     message.type === "SET_OFFSET" ||
     (message.type === "OPEN_PIP" &&
-      typeof (value as { id?: unknown }).id === "string")
+      typeof (value as { id?: unknown }).id === "string") ||
+    (message.type === "OPEN_DIALOG" &&
+      (typeof (value as { id?: unknown }).id === "string" ||
+        typeof (value as { url?: unknown }).url === "string"))
   );
 }

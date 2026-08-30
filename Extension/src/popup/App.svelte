@@ -63,6 +63,44 @@
     const url = `${chrome.runtime.getURL("player.html")}?src=${encodeURIComponent(entry.url)}`;
     void chrome.tabs.create({ url });
   }
+  async function openHlsDialog(entry: HlsUrl) {
+    const reply = await ask<null>({
+      type: "OPEN_DIALOG",
+      url: entry.url,
+      id: selected || undefined,
+      subtitles: subtitle,
+      subtitleName,
+    });
+    if (!reply.ok) status = reply.error;
+  }
+  async function openSelectedDialog() {
+    // HLS playback is more reliable than a site's blob-backed <video>. Prefer
+    // the manifest when one was observed for this tab, even if a video candidate
+    // is also present. Mux loads its video-only rendition playlists after its
+    // master playlist; opening a rendition drops the separate audio track.
+    const hls =
+      hlsUrls.find(({ url }) =>
+        /^https:\/\/stream\.mux\.com\/[^/?]+\.m3u8(?:$|[?#])/i.test(url),
+      ) ??
+      hlsUrls.find(({ url }) =>
+        /\/(?:index|master)\.m3u8(?:$|[?#])/i.test(url),
+      ) ?? hlsUrls[0];
+    if (hls) {
+      await openHlsDialog(hls);
+      return;
+    }
+    if (!selected) {
+      status = "No reusable video URL or HLS stream found on this page.";
+      return;
+    }
+    const reply = await ask<null>({
+      type: "OPEN_DIALOG",
+      id: selected,
+      subtitles: subtitle,
+      subtitleName,
+    });
+    if (!reply.ok) status = reply.error;
+  }
   // File contents stay local and cross to the page only as serializable text.
   async function chooseSubtitle(event: Event) {
     const file = (event.currentTarget as HTMLInputElement).files?.[0];
@@ -132,6 +170,12 @@
   <button class="primary" onclick={open} disabled={!selected || busy}>
     Open Picture-in-Picture
   </button>
+  <button
+    onclick={openSelectedDialog}
+    disabled={(!selected && !hlsUrls.length) || busy}
+  >
+    Create video dialog
+  </button>
   <label>
     Subtitle (.srt)
     <input type="file" accept=".srt,text/plain" onchange={chooseSubtitle} />
@@ -148,7 +192,12 @@
       {#each hlsUrls as entry (entry.url)}
         <div class="stream">
           <code title={entry.url}>{entry.url}</code>
-          <button class="play-hls" onclick={() => playHls(entry)}>Play</button>
+          <div class="stream-actions">
+            <button class="play-hls" onclick={() => openHlsDialog(entry)}>
+              Dialog
+            </button>
+            <button onclick={() => playHls(entry)}>Tab</button>
+          </div>
         </div>
       {/each}
     </section>
@@ -228,6 +277,10 @@
   .play-hls {
     background: #16a34a;
     color: white;
+  }
+  .stream-actions {
+    display: flex;
+    gap: 6px;
   }
   a {
     display: block;

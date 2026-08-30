@@ -6,7 +6,9 @@ chrome.runtime.onMessage.addListener(
       !message ||
       typeof message !== "object" ||
       !("type" in message) ||
-      (message as { type: unknown }).type !== "ENSURE_CONTENT"
+      !["ENSURE_CONTENT", "ENSURE_VIDEOJS_MAIN"].includes(
+        (message as { type: unknown }).type as string,
+      )
     )
       return;
     const tabId = sender.tab?.id ?? (message as { tabId?: number }).tabId;
@@ -14,12 +16,12 @@ chrome.runtime.onMessage.addListener(
       sendResponse({ ok: false, error: "No active tab." });
       return;
     }
-    // This helper deliberately reports only that the best-effort attempt finished;
-    // a follow-up tab message is responsible for surfacing restricted-page failures.
+    const type = (message as { type: string }).type;
     void chrome.scripting
       .executeScript({
         target: { tabId, allFrames: false },
-        files: ["content.js"],
+        files: [type === "ENSURE_VIDEOJS_MAIN" ? "videojs-main.js" : "content.js"],
+        ...(type === "ENSURE_VIDEOJS_MAIN" ? { world: "MAIN" as const } : {}),
       })
       .then(
         () => sendResponse({ ok: true }),
