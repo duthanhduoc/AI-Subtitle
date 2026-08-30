@@ -7,6 +7,7 @@ A local-first Manifest V3 Chrome extension that moves a selected HTML5 video int
 - Scores visible videos (including open Shadow DOM) and lets you choose when needed.
 - Reuses the existing video element, avoiding a second stream whenever the site allows it.
 - Custom, non-dimming PiP controls; seeking, volume, playback speed, and keyboard controls.
+- Detects HLS `.m3u8` playlists from the tab and opens playable streams in an extension-owned player page.
 - Local UTF-8 SRT parsing and safe `textContent` subtitle rendering.
 - No network requests, analytics, accounts, or subtitle upload.
 

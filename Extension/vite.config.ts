@@ -5,10 +5,14 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 export default defineConfig({
   plugins: [svelte()],
   base: "./",
-  // Popup and options are separate extension pages but share this Svelte build.
+  // Popup, options and the HLS player are separate extension pages.
   build: {
     rollupOptions: {
-      input: { popup: resolve("popup.html"), options: resolve("options.html") },
+      input: {
+        popup: resolve("popup.html"),
+        options: resolve("options.html"),
+        player: resolve("player.html"),
+      },
     },
   },
 });

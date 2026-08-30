@@ -14,6 +14,8 @@ export type Message =
   | { type: "OPEN_PIP"; id: string; subtitles?: string; subtitleName?: string }
   | { type: "SET_OFFSET"; offset: number };
 
+export type HlsUrl = { url: string; frameId: number; seenAt: number };
+
 // Runtime messages are an input boundary even though internal callers use the
 // TypeScript union. Handlers still sanitize individual payload values before use.
 export function isMessage(value: unknown): value is Message {

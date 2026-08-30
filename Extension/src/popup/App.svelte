@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Candidate, Message, Reply } from "../shared/messages";
+  import type { Candidate, HlsUrl, Message, Reply } from "../shared/messages";
   import { formatTime } from "../shared/time";
 
   // Popup state is disposable. Imported tracks that must survive reopening PiP
@@ -11,6 +11,7 @@
   let offset = $state(0);
   let status = $state("Scanning this tab…");
   let busy = $state(false);
+  let hlsUrls = $state<HlsUrl[]>([]);
 
   async function tabId(): Promise<number> {
     const [tab] = await chrome.tabs.query({
@@ -19,6 +20,14 @@
     });
     if (!tab?.id) throw new Error("No active tab.");
     return tab.id;
+  }
+  async function scanHls() {
+    const id = await tabId();
+    const reply = (await chrome.runtime.sendMessage({
+      type: "GET_HLS_URLS",
+      tabId: id,
+    })) as Reply<HlsUrl[]>;
+    if (reply.ok) hlsUrls = reply.value;
   }
   // There is no persistent content-script declaration in the manifest. Inject
   // before each request; the content bundle's window guard makes this idempotent.
@@ -35,6 +44,7 @@
     busy = true;
     status = "Scanning this tab…";
     try {
+      await scanHls();
       const reply = await ask<Candidate[]>({ type: "GET_CANDIDATES" });
       if (!reply.ok) throw new Error(reply.error);
       candidates = reply.value;
@@ -48,6 +58,10 @@
     } finally {
       busy = false;
     }
+  }
+  function playHls(entry: HlsUrl) {
+    const url = `${chrome.runtime.getURL("player.html")}?src=${encodeURIComponent(entry.url)}`;
+    void chrome.tabs.create({ url });
   }
   // File contents stay local and cross to the page only as serializable text.
   async function chooseSubtitle(event: Event) {
@@ -128,6 +142,17 @@
     <button onclick={() => changeOffset(0.5)}>+0.5</button>
   </div>
   <button onclick={scan} disabled={busy}>Rescan</button>
+  {#if hlsUrls.length}
+    <section class="hls">
+      <h2>Detected HLS streams</h2>
+      {#each hlsUrls as entry (entry.url)}
+        <div class="stream">
+          <code title={entry.url}>{entry.url}</code>
+          <button class="play-hls" onclick={() => playHls(entry)}>Play</button>
+        </div>
+      {/each}
+    </section>
+  {/if}
   {#if status}<p class="status">{status}</p>{/if}
   <a href="options.html" target="_blank">Settings</a>
 </main>
@@ -176,6 +201,33 @@
   }
   .status {
     color: #475569;
+  }
+  .hls {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #cbd5e1;
+  }
+  h2 {
+    margin: 0 0 8px;
+    font-size: 14px;
+  }
+  .stream {
+    display: grid;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  code {
+    overflow: hidden;
+    padding: 6px;
+    border-radius: 4px;
+    background: #f1f5f9;
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .play-hls {
+    background: #16a34a;
+    color: white;
   }
   a {
     display: block;
