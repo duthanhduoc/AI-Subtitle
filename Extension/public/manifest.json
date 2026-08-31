@@ -28,7 +28,7 @@
 	},
 	"content_scripts": [
 		{
-			"matches": ["https://*.supremejav.com/*", "https://turbovidhls.com/*"],
+			"matches": ["<all_urls>"],
 			"js": ["content.js"],
 			"all_frames": true,
 			"run_at": "document_idle"
