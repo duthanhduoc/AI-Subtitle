@@ -48,3 +48,30 @@ export function parseSrt(input: string): SubtitleTrack {
     ),
   };
 }
+
+const vttTime = (seconds: number): string => {
+  const milliseconds = Math.max(0, Math.round(seconds * 1000));
+  const hours = Math.floor(milliseconds / 3_600_000);
+  const minutes = Math.floor((milliseconds % 3_600_000) / 60_000);
+  const remaining = milliseconds % 60_000;
+  const secs = Math.floor(remaining / 1_000);
+  const ms = remaining % 1_000;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+    2,
+    "0",
+  )}:${String(secs).padStart(2, "0")}.${String(ms).padStart(3, "0")}`;
+};
+
+export function srtToVtt(input: string): string {
+  const cues = parseSrt(input).cues;
+  if (!cues.length) throw new Error("The SRT file has no valid subtitle cues.");
+
+  return `WEBVTT\n\n${cues
+    .map(
+      (cue, index) =>
+        `${cue.id ?? String(index + 1)}\n${vttTime(cue.startTime)} --> ${vttTime(
+          cue.endTime,
+        )}\n${cue.text}`,
+    )
+    .join("\n\n")}\n`;
+}

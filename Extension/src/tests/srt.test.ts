@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSrt } from '../subtitles/srt';
+import { parseSrt, srtToVtt } from '../subtitles/srt';
 import { findCue } from '../subtitles/search';
 
 describe('SRT parsing', () => {
@@ -8,4 +8,9 @@ describe('SRT parsing', () => {
     expect(track.cues).toEqual([{ id: '1', startTime: 1, endTime: 4.5, text: 'Xin chào\nViệt Nam' }, { id: '2', startTime: 5, endTime: 6, text: 'Next' }]);
   });
   it('finds cues at inclusive boundaries and gaps', () => { const cues = parseSrt('00:00:01,000 --> 00:00:02,000\nA\n\n00:00:04,000 --> 00:00:05,000\nB').cues; expect(findCue(cues, 1)?.text).toBe('A'); expect(findCue(cues, 2)?.text).toBe('A'); expect(findCue(cues, 3)).toBeUndefined(); expect(findCue(cues, 4)?.text).toBe('B'); });
+  it('converts SRT timestamps to WebVTT', () => {
+    expect(srtToVtt('1\n00:01:02,5 --> 00:01:04,050\nHello')).toBe(
+      'WEBVTT\n\n1\n00:01:02.500 --> 00:01:04.050\nHello\n',
+    );
+  });
 });
