@@ -14,6 +14,8 @@
 
 ## Completed
 
+- [x] Resolve HLS from the selected video so unrelated player and advertising streams stay hidden.
+- [x] Preserve source-page headers and cookies when playing protected HLS in the extension page.
 - [x] Normalize responsive subtitle size and weight behavior across presets.
 - [x] Restyle the PiP settings menu with compact YouTube-inspired rows and custom track/speed submenus.
 - [x] Add dismissible player settings, responsive subtitle weight, and a subtitles-off track.

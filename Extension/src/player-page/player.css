@@ -36,7 +36,9 @@ video-skin {
   gap: 0.5rem;
   max-width: calc(100% - 2.5rem);
   color: white;
-  font: 500 0.8rem/1.2 system-ui, sans-serif;
+  font:
+    500 0.8rem/1.2 system-ui,
+    sans-serif;
 }
 
 .player-subtitle-upload {

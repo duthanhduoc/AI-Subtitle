@@ -40,8 +40,21 @@ if (!contentWindow.__customPipContentLoaded) {
       if (!video) {
         sendResponse({
           ok: false,
-          error: "The selected video is no longer available. Reopen the extension.",
+          error:
+            "The selected video is no longer available. Reopen the extension.",
         });
+        return;
+      }
+
+      if (message.type === "MARK_HLS_TARGET") {
+        // The marker bridges the isolated content world to a short MAIN-world
+        // lookup without exposing or serializing the page's video element.
+        for (const marked of document.querySelectorAll(
+          "[data-custom-pip-hls-target]",
+        ))
+          marked.removeAttribute("data-custom-pip-hls-target");
+        video.setAttribute("data-custom-pip-hls-target", message.marker);
+        sendResponse({ ok: true, value: null });
         return;
       }
 

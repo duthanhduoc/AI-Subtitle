@@ -37,8 +37,7 @@ const cacheReady = chrome.storage.session
   .get(HLS_STORAGE_KEY)
   .then((stored) => {
     const entries = stored[HLS_STORAGE_KEY] as
-      | Record<string, HlsUrl[]>
-      | undefined;
+      Record<string, HlsUrl[]> | undefined;
     for (const [tabId, urls] of Object.entries(entries ?? {}))
       hlsByTab.set(Number(tabId), urls);
   })
@@ -58,10 +57,10 @@ chrome.webRequest.onBeforeRequest.addListener(
     if (tabId < 0 || !/\.m3u8(?:$|[?#])/i.test(details.url)) return;
     void cacheReady.then(() => {
       const current = hlsByTab.get(tabId) ?? [];
-      const next = [
+      const next = preferTopFrameHls([
         { url: details.url, frameId: details.frameId, seenAt: Date.now() },
         ...current.filter((entry) => entry.url !== details.url),
-      ].slice(0, 10);
+      ]).slice(0, 10);
       hlsByTab.set(tabId, next);
       return persistHlsCache();
     });
@@ -83,17 +82,20 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   });
 });
 
-chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
-  if (!message || typeof message !== "object" || !("type" in message)) return;
-  if ((message as { type?: unknown }).type !== "GET_HLS_URLS") return;
-  const tabId = (message as { tabId?: unknown }).tabId ?? sender.tab?.id;
-  if (typeof tabId !== "number") {
-    sendResponse({ ok: false, error: "No tab selected." });
-    return;
-  }
-  void cacheReady.then(() =>
-    sendResponse({ ok: true, value: hlsByTab.get(tabId) ?? [] }),
-  );
-  return true;
-});
+chrome.runtime.onMessage.addListener(
+  (message: unknown, sender, sendResponse) => {
+    if (!message || typeof message !== "object" || !("type" in message)) return;
+    if ((message as { type?: unknown }).type !== "GET_HLS_URLS") return;
+    const tabId = (message as { tabId?: unknown }).tabId ?? sender.tab?.id;
+    if (typeof tabId !== "number") {
+      sendResponse({ ok: false, error: "No tab selected." });
+      return;
+    }
+    void cacheReady.then(() =>
+      sendResponse({ ok: true, value: hlsByTab.get(tabId) ?? [] }),
+    );
+    return true;
+  },
+);
 import type { HlsUrl } from "../shared/messages";
+import { preferTopFrameHls } from "../shared/hls";

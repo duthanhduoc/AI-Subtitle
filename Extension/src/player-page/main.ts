@@ -26,9 +26,7 @@ const lucide = (
   const element = document.createElementNS(svgNamespace, tag);
   for (const [name, value] of Object.entries(attributes))
     element.setAttribute(name, String(value));
-  element.append(
-    ...(children ?? []).map((child) => lucide(document, child)),
-  );
+  element.append(...(children ?? []).map((child) => lucide(document, child)));
   return element;
 };
 
@@ -225,7 +223,18 @@ if (!source) {
   hlsMedia = document.createElement("hlsjs-video");
 
   hlsMedia.slot = "media";
-  hlsMedia.src = source;
+  // The CDN validates the source page and session when loading HLS assets.
+  // Cookies are needed for its short-lived Cloudflare media authorization.
+  hlsMedia.source = {
+    src: source,
+    engine: {
+      hlsJs: {
+        xhrSetup: (xhr: XMLHttpRequest) => {
+          xhr.withCredentials = true;
+        },
+      },
+    },
+  };
   hlsMedia.setAttribute("playsinline", "");
   hlsMedia.setAttribute("preload", "auto");
   skin.append(hlsMedia);

@@ -3,10 +3,14 @@
     Candidate,
     HlsUrl,
     Message,
+    PlayerCommand,
     PlayerMessage,
     Reply,
   } from "../shared/messages";
-  import { selectPrimaryHls } from "../shared/hls";
+  import {
+    findMarkedVideoHlsUrls,
+    selectPrimaryHls,
+  } from "../shared/hls";
   import { formatTime } from "../shared/time";
 
   // Popup state is disposable. Imported tracks that must survive reopening PiP
@@ -20,6 +24,7 @@
   let resolutions = $state<Record<string, string>>({});
   let resolutionScan = 0;
   let playerTabId: number | undefined;
+  let sourceTabId: number | undefined;
   let primaryHlsUrls = $derived(selectPrimaryHls(hlsUrls, resolutions));
 
   async function activeTab(): Promise<chrome.tabs.Tab> {
@@ -30,13 +35,18 @@
     if (!tab?.id) throw new Error("No active tab.");
     return tab;
   }
-  async function scanHls(tabId: number) {
+  async function scanHls(tabId: number, candidateId?: string) {
     const reply = (await chrome.runtime.sendMessage({
       type: "GET_HLS_URLS",
       tabId,
     })) as Reply<HlsUrl[]>;
     if (!reply.ok) throw new Error(reply.error);
-    hlsUrls = reply.value;
+    const attachedUrls = candidateId
+      ? await hlsForCandidate(tabId, candidateId)
+      : [];
+    hlsUrls = attachedUrls.length
+      ? attachedUrls.map((url) => ({ url, frameId: 0, seenAt: Date.now() }))
+      : reply.value;
     resolutions = {};
     const scanId = ++resolutionScan;
     void Promise.all(
@@ -45,6 +55,22 @@
         if (scanId === resolutionScan) resolutions[url] = resolution;
       }),
     );
+  }
+
+  async function hlsForCandidate(tabId: number, id: string) {
+    const marker = crypto.randomUUID();
+    const marked = await ask<null>(
+      { type: "MARK_HLS_TARGET", id, marker },
+      tabId,
+    );
+    if (!marked.ok) return [];
+    const [injection] = await chrome.scripting.executeScript({
+      target: { tabId },
+      world: "MAIN",
+      func: findMarkedVideoHlsUrls,
+      args: [marker],
+    });
+    return injection?.result ?? [];
   }
 
   async function readHlsResolution(url: string): Promise<string> {
@@ -69,7 +95,10 @@
       .catch(() => undefined);
     return chrome.tabs.sendMessage(tabId, message) as Promise<Reply<T>>;
   }
-  function askPlayer<T>(message: Message, tabId: number): Promise<Reply<T>> {
+  function askPlayer<T>(
+    message: PlayerCommand,
+    tabId: number,
+  ): Promise<Reply<T>> {
     const playerMessage: PlayerMessage = { ...message, tabId };
     return chrome.runtime.sendMessage(playerMessage) as Promise<Reply<T>>;
   }
@@ -81,8 +110,8 @@
     try {
       const tab = await activeTab();
       const tabId = tab.id!;
+      sourceTabId = tabId;
       playerTabId = undefined;
-      await scanHls(tabId);
       if (tab.url?.startsWith(chrome.runtime.getURL("player.html"))) {
         playerTabId = tabId;
         const reply = await askPlayer<Candidate[]>(
@@ -92,6 +121,7 @@
         if (!reply.ok) throw new Error(reply.error);
         candidates = reply.value;
         selected = candidates[0]?.id ?? "";
+        await scanHls(tabId, selected || undefined);
         status = candidates.length
           ? ""
           : "The player video is not ready. Rescan and try again.";
@@ -100,6 +130,7 @@
       if (tab.url?.startsWith(chrome.runtime.getURL(""))) {
         candidates = [];
         selected = "";
+        await scanHls(tabId);
         status = hlsUrls.length
           ? ""
           : "No HLS stream found in this extension page.";
@@ -109,6 +140,7 @@
       if (!reply.ok) throw new Error(reply.error);
       candidates = reply.value;
       selected = candidates[0]?.id ?? "";
+      await scanHls(tabId, selected || undefined);
       status =
         candidates.length || hlsUrls.length
           ? ""
@@ -116,6 +148,20 @@
     } catch (error) {
       status =
         error instanceof Error ? error.message : "Could not scan this page.";
+    } finally {
+      busy = false;
+    }
+  }
+  async function chooseVideo(event: Event) {
+    selected = (event.currentTarget as HTMLSelectElement).value;
+    if (!sourceTabId) return;
+    busy = true;
+    try {
+      await scanHls(sourceTabId, selected);
+      status = "";
+    } catch (error) {
+      status =
+        error instanceof Error ? error.message : "Could not scan this video.";
     } finally {
       busy = false;
     }
@@ -169,7 +215,7 @@
   {#if candidates.length > 1}
     <label>
       Choose video
-      <select bind:value={selected}>
+      <select value={selected} onchange={chooseVideo}>
         {#each candidates as candidate (candidate.id)}
           <option value={candidate.id}>
             {candidate.width}×{candidate.height} · {candidate.playing

@@ -17,6 +17,15 @@
     "tabCapture"
   ],
   "host_permissions": ["<all_urls>"],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "hls-referrer",
+        "enabled": true,
+        "path": "rules/hls.json"
+      }
+    ]
+  },
   "content_scripts": [
     {
       "matches": ["https://*.supremejav.com/*", "https://turbovidhls.com/*"],
