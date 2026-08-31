@@ -10,9 +10,8 @@ export type Candidate = {
 };
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export type Message =
-  | { type: "GET_CANDIDATES" }
-  | { type: "OPEN_PIP"; id: string; subtitles?: string; subtitleName?: string }
-  | { type: "SET_OFFSET"; offset: number };
+  { type: "GET_CANDIDATES" } | { type: "OPEN_PIP"; id: string };
+export type PlayerMessage = Message & { tabId: number };
 
 export type HlsUrl = { url: string; frameId: number; seenAt: number };
 
@@ -23,8 +22,15 @@ export function isMessage(value: unknown): value is Message {
   const message = value as { type?: unknown };
   return (
     message.type === "GET_CANDIDATES" ||
-    message.type === "SET_OFFSET" ||
     (message.type === "OPEN_PIP" &&
       typeof (value as { id?: unknown }).id === "string")
+  );
+}
+
+export function isPlayerMessage(value: unknown): value is PlayerMessage {
+  return (
+    isMessage(value) &&
+    "tabId" in value &&
+    Number.isInteger((value as { tabId?: unknown }).tabId)
   );
 }

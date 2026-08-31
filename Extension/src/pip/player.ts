@@ -34,6 +34,18 @@ type PlayerSettings = {
   fontSize?: "small" | "medium" | "large" | "xlarge";
   background?: "off" | "low" | "medium" | "high";
 };
+type PlayerMedia = HTMLElement &
+  Pick<
+    HTMLVideoElement,
+    | "currentTime"
+    | "duration"
+    | "muted"
+    | "pause"
+    | "paused"
+    | "play"
+    | "playbackRate"
+    | "volume"
+  >;
 type SubtitlePreset = "netflix" | "cinema" | "minimal" | "contrast";
 const speeds = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 const presets: SubtitlePreset[] = ["netflix", "cinema", "minimal", "contrast"];
@@ -55,11 +67,10 @@ const setIcon = (element: Element, icon: IconNode) =>
   element.replaceChildren(lucide(element.ownerDocument, icon));
 
 export async function openPlayer(
-  video: HTMLVideoElement,
-  initialSubtitle: StoredSubtitle | undefined,
-  initialOffset = 0,
+  video: PlayerMedia,
   settings: PlayerSettings = {},
   subtitleState: SubtitleState = { tracks: [] },
+  sizeElement: HTMLElement = video,
 ): Promise<void> {
   const api = (window as Window & { documentPictureInPicture?: DocumentPip })
     .documentPictureInPicture;
@@ -80,11 +91,11 @@ export async function openPlayer(
     className: video.className,
   };
   const pip = await api.requestWindow({
-    width: Math.max(480, video.clientWidth),
-    height: Math.max(270, video.clientHeight),
+    width: Math.max(480, sizeElement.clientWidth),
+    height: Math.max(270, sizeElement.clientHeight),
   });
   let closed = false;
-  let offset = initialOffset;
+  let offset = 0;
   let raf = 0;
   let dragging = false;
   let wasPaused: boolean | undefined;
@@ -238,8 +249,8 @@ export async function openPlayer(
     refreshTracks();
   };
   const addTracks = (incoming: StoredSubtitle[]) => {
-    // Avoid duplicate menu entries when the popup resends a track or the user
-    // imports the same file again, then activate the first incoming track.
+    // Avoid duplicate menu entries when the same file is imported again, then
+    // activate the first incoming track.
     for (const track of incoming)
       if (
         !tracks.some(
@@ -308,11 +319,11 @@ export async function openPlayer(
     raf = requestAnimationFrame(render);
   };
 
-  // Move, do not clone, the page's real video. Cloning `src` would break many
-  // authenticated, blob-backed and Media Source Extension streams.
+  // Move, do not clone, the page's real media element. Custom media hosts must
+  // move as a whole so their HLS/MSE controller remains attached.
   video.setAttribute(
     "style",
-    "width:100%;height:100%;object-fit:contain;background:#000",
+    "display:block;width:100%;height:100%;object-fit:contain;background:#000",
   );
   player.prepend(video);
   play.onclick = () => (video.paused ? void video.play() : video.pause());
@@ -411,9 +422,7 @@ export async function openPlayer(
       action();
     }
   });
-  // A newly supplied popup track wins; otherwise restore the session's prior selection.
-  if (initialSubtitle) addTracks([initialSubtitle]);
-  else selectTrack(subtitleState.activeTrackIndex ?? -1);
+  selectTrack(subtitleState.activeTrackIndex ?? -1);
   void chrome.storage.local
     .get({ subtitlePreset: "netflix" as SubtitlePreset })
     .then((stored) => {

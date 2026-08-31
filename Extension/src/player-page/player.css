@@ -1,0 +1,23 @@
+:root,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #101010;
+}
+
+#app,
+video-player,
+video-skin {
+  display: block;
+  width: 100%;
+  height: 100vh;
+}
+
+video-player {
+  --media-color-primary: #f03;
+}

@@ -30,26 +30,58 @@ chrome.runtime.onMessage.addListener(
   },
 );
 
+const HLS_STORAGE_KEY = "hlsByTab";
 const hlsByTab = new Map<number, HlsUrl[]>();
+let pendingWrite = Promise.resolve();
+const cacheReady = chrome.storage.session
+  .get(HLS_STORAGE_KEY)
+  .then((stored) => {
+    const entries = stored[HLS_STORAGE_KEY] as
+      | Record<string, HlsUrl[]>
+      | undefined;
+    for (const [tabId, urls] of Object.entries(entries ?? {}))
+      hlsByTab.set(Number(tabId), urls);
+  })
+  .catch(() => undefined);
+
+function persistHlsCache() {
+  const snapshot = Object.fromEntries(hlsByTab);
+  pendingWrite = pendingWrite
+    .catch(() => undefined)
+    .then(() => chrome.storage.session.set({ [HLS_STORAGE_KEY]: snapshot }));
+  return pendingWrite;
+}
 
 chrome.webRequest.onBeforeRequest.addListener(
   (details) => {
     const tabId = details.tabId;
     if (tabId < 0 || !/\.m3u8(?:$|[?#])/i.test(details.url)) return;
-    const current = hlsByTab.get(tabId) ?? [];
-    const next = [
-      { url: details.url, frameId: details.frameId, seenAt: Date.now() },
-      ...current.filter((entry) => entry.url !== details.url),
-    ].slice(0, 10);
-    hlsByTab.set(tabId, next);
+    void cacheReady.then(() => {
+      const current = hlsByTab.get(tabId) ?? [];
+      const next = [
+        { url: details.url, frameId: details.frameId, seenAt: Date.now() },
+        ...current.filter((entry) => entry.url !== details.url),
+      ].slice(0, 10);
+      hlsByTab.set(tabId, next);
+      return persistHlsCache();
+    });
   },
   { urls: ["*://*/*.m3u8*"] },
 );
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (changeInfo.status === "loading") hlsByTab.delete(tabId);
+  if (changeInfo.status !== "loading") return;
+  void cacheReady.then(() => {
+    hlsByTab.delete(tabId);
+    return persistHlsCache();
+  });
 });
-chrome.tabs.onRemoved.addListener((tabId) => hlsByTab.delete(tabId));
+chrome.tabs.onRemoved.addListener((tabId) => {
+  void cacheReady.then(() => {
+    hlsByTab.delete(tabId);
+    return persistHlsCache();
+  });
+});
 
 chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
   if (!message || typeof message !== "object" || !("type" in message)) return;
@@ -59,6 +91,9 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
     sendResponse({ ok: false, error: "No tab selected." });
     return;
   }
-  sendResponse({ ok: true, value: hlsByTab.get(tabId) ?? [] });
+  void cacheReady.then(() =>
+    sendResponse({ ok: true, value: hlsByTab.get(tabId) ?? [] }),
+  );
+  return true;
 });
 import type { HlsUrl } from "../shared/messages";

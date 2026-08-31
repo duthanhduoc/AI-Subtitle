@@ -1,178 +1,79 @@
-import Hls from "hls.js";
-import { findCue } from "../subtitles/search";
-import { parseSrt } from "../subtitles/srt";
-import { formatTime } from "../shared/time";
-import type { SubtitleCue } from "../subtitles/types";
-import playerMarkup from "../pip/player.html?raw";
-import playerStyles from "../pip/player.css?raw";
+import "@videojs/html/media/hlsjs-video";
+import "@videojs/html/video/player";
+import "@videojs/html/video/skin";
+import "@videojs/html/video/skin.css";
+import "./player.css";
+import { discover, getVideo } from "../content/discovery";
+import { openPlayer } from "../pip/player";
+import { isPlayerMessage, type Reply } from "../shared/messages";
+import type { SubtitleState } from "../subtitles/types";
 
 const params = new URLSearchParams(location.search);
 const source = params.get("src");
 const root = document.getElementById("app")!;
-const style = document.createElement("style");
-style.textContent = playerStyles;
-document.head.append(style);
-root.innerHTML = playerMarkup;
+const subtitleState: SubtitleState = { tracks: [] };
+let hlsMedia: HTMLElementTagNameMap["hlsjs-video"] | undefined;
 
-const player = document.querySelector<HTMLElement>("#player")!;
-const video = document.createElement("video");
-video.controls = false;
-video.playsInline = true;
-video.preload = "auto";
-video.style.cssText =
-  "width:100%;height:100%;object-fit:contain;background:#000";
-player.prepend(video);
-document.documentElement.style.setProperty("--subtitle-font-size", "24px");
-document.documentElement.style.setProperty(
-  "--subtitle-background-alpha",
-  "0.5",
-);
-
-const $ = <T extends Element>(selector: string) =>
-  document.querySelector(selector) as T;
-const subtitle = $<HTMLDivElement>(".subs");
-const play = $<HTMLButtonElement>("button.play");
-const progress = $<HTMLInputElement>("input.progress");
-const time = $<HTMLSpanElement>(".time");
-const mute = $<HTMLButtonElement>("button.mute");
-const volume = $<HTMLInputElement>("input.volume");
-const file = $<HTMLInputElement>("input.srt-file");
-const addSrt = $<HTMLButtonElement>("button.add-srt");
-const settings = $<HTMLButtonElement>("button.settings");
-const menu = $<HTMLDivElement>(".settings-menu");
-const speeds = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
-let cues: SubtitleCue[] = [];
-let dragging = false;
-let playbackError = "";
-
-type DocumentPip = {
-  requestWindow(options?: { width?: number; height?: number }): Promise<Window>;
-};
+void chrome.tabs.getCurrent().then((tab) => {
+  if (!tab?.id) return;
+  chrome.runtime.onMessage.addListener(
+    (
+      message: unknown,
+      _sender,
+      sendResponse: (reply: Reply<unknown>) => void,
+    ) => {
+      if (!isPlayerMessage(message) || message.tabId !== tab.id) return;
+      if (message.type === "GET_CANDIDATES") {
+        sendResponse({ ok: true, value: discover() });
+        return;
+      }
+      const nativeVideo = getVideo(message.id);
+      const media = hlsMedia;
+      if (!nativeVideo || !media) {
+        sendResponse({
+          ok: false,
+          error: "The player video is not ready. Rescan and try again.",
+        });
+        return;
+      }
+      void chrome.storage.local
+        .get({ fontSize: "medium", background: "medium", controlsDelay: 2200 })
+        .then((settings) =>
+          openPlayer(media, settings, subtitleState, nativeVideo),
+        )
+        .then(() => sendResponse({ ok: true, value: null }))
+        .catch((error: unknown) =>
+          sendResponse({
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Could not open Picture-in-Picture.",
+          }),
+        );
+      return true;
+    },
+  );
+});
 
 if (!source) {
-  subtitle.textContent = "No HLS URL was provided.";
-} else if (Hls.isSupported()) {
-  const hls = new Hls();
-  hls.loadSource(source);
-  hls.attachMedia(video);
-  hls.on(Hls.Events.ERROR, (_event, data) => {
-    if (data.fatal) playbackError = `HLS error: ${data.details}`;
-  });
-} else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-  video.src = source;
+  root.textContent = "No HLS URL was provided.";
 } else {
-  playbackError = "This browser cannot play HLS streams.";
+  const player = document.createElement("video-player");
+  const skin = document.createElement("video-skin");
+  hlsMedia = document.createElement("hlsjs-video");
+
+  hlsMedia.slot = "media";
+  hlsMedia.src = source;
+  hlsMedia.setAttribute("playsinline", "");
+  hlsMedia.setAttribute("preload", "auto");
+  skin.append(hlsMedia);
+  player.append(skin);
+  root.append(player);
+
+  requestAnimationFrame(() => {
+    skin.shadowRoot
+      ?.querySelector<HTMLElement>("media-play-button")
+      ?.focus({ preventScroll: true });
+  });
 }
-
-play.textContent = "▶";
-mute.textContent = "🔊";
-settings.textContent = "⚙";
-play.onclick = () => (video.paused ? void video.play() : video.pause());
-mute.onclick = () => {
-  video.muted = !video.muted;
-  mute.textContent = video.muted ? "🔇" : "🔊";
-};
-volume.value = String(video.volume);
-volume.oninput = () => {
-  video.volume = Number(volume.value);
-  video.muted = video.volume === 0;
-};
-progress.onpointerdown = () => (dragging = true);
-progress.onpointerup = () => (dragging = false);
-progress.oninput = () => (video.currentTime = Number(progress.value));
-settings.onclick = () => menu.classList.toggle("open");
-addSrt.onclick = () => file.click();
-file.onchange = async () => {
-  const selected = file.files?.[0];
-  if (selected) cues = parseSrt(await selected.text()).cues;
-};
-for (const button of menu.querySelectorAll<HTMLButtonElement>("[data-preset]"))
-  button.onclick = () => {
-    player.dataset.preset = button.dataset.preset;
-    menu.classList.remove("open");
-  };
-
-const pipButton = document.createElement("button");
-pipButton.className = "pip icon";
-pipButton.type = "button";
-pipButton.textContent = "PiP";
-pipButton.title = "Open Document PiP";
-pipButton.setAttribute("aria-label", "Open Document PiP");
-document.querySelector(".settings-wrap")!.before(pipButton);
-
-let pipWindow: Window | undefined;
-let restored = true;
-const originalParent = player.parentNode;
-const originalNext = player.nextSibling;
-
-pipButton.onclick = async () => {
-  const api = (window as Window & { documentPictureInPicture?: DocumentPip })
-    .documentPictureInPicture;
-  if (!api) {
-    playbackError = "Document PiP is not supported by this browser.";
-    return;
-  }
-  if (pipWindow && !pipWindow.closed) return;
-
-  try {
-    // This must stay in the click handler because Chrome requires user activation.
-    pipWindow = await api.requestWindow({
-      width: Math.max(480, player.clientWidth),
-      height: Math.max(270, player.clientHeight),
-    });
-    restored = false;
-    const pipStyle = pipWindow.document.createElement("style");
-    pipStyle.textContent = playerStyles;
-    pipWindow.document.head.append(pipStyle);
-    pipWindow.document.documentElement.style.setProperty(
-      "--subtitle-font-size",
-      "24px",
-    );
-    pipWindow.document.documentElement.style.setProperty(
-      "--subtitle-background-alpha",
-      "0.5",
-    );
-    pipWindow.document.body.replaceChildren(player);
-    pipWindow.addEventListener(
-      "pagehide",
-      () => {
-        if (restored) return;
-        restored = true;
-        if (originalParent?.isConnected)
-          originalParent.insertBefore(
-            player,
-            originalNext?.isConnected ? originalNext : null,
-          );
-        pipWindow = undefined;
-      },
-      { once: true },
-    );
-  } catch (error) {
-    playbackError =
-      error instanceof Error ? error.message : "Could not open Document PiP.";
-  }
-};
-const speedPicker = document.querySelector<HTMLButtonElement>(
-  "button.speed-picker",
-)!;
-speedPicker.onclick = () => {
-  const rate =
-    speeds[(speeds.indexOf(video.playbackRate) + 1) % speeds.length] ?? 1;
-  video.playbackRate = rate;
-  speedPicker.querySelector(".speed-value")!.textContent = `${rate}x`;
-};
-
-function render() {
-  progress.max = String(Number.isFinite(video.duration) ? video.duration : 0);
-  if (!dragging) progress.value = String(video.currentTime || 0);
-  progress.style.setProperty(
-    "--played",
-    `${video.duration ? (video.currentTime / video.duration) * 100 : 0}%`,
-  );
-  play.textContent = video.paused ? "▶" : "❚❚";
-  time.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
-  subtitle.textContent =
-    playbackError || findCue(cues, video.currentTime)?.text || "";
-  requestAnimationFrame(render);
-}
-render();

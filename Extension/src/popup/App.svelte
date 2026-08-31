@@ -1,42 +1,77 @@
 <script lang="ts">
-  import type { Candidate, HlsUrl, Message, Reply } from "../shared/messages";
+  import type {
+    Candidate,
+    HlsUrl,
+    Message,
+    PlayerMessage,
+    Reply,
+  } from "../shared/messages";
+  import { selectPrimaryHls } from "../shared/hls";
   import { formatTime } from "../shared/time";
 
   // Popup state is disposable. Imported tracks that must survive reopening PiP
   // are owned by the content script's page session instead.
   let candidates = $state<Candidate[]>([]);
   let selected = $state("");
-  let subtitle = $state<string | undefined>();
-  let subtitleName = $state<string | undefined>();
-  let offset = $state(0);
   let status = $state("Scanning this tab…");
   let busy = $state(false);
   let hlsUrls = $state<HlsUrl[]>([]);
+  let copiedUrl = $state("");
+  let resolutions = $state<Record<string, string>>({});
+  let resolutionScan = 0;
+  let playerTabId: number | undefined;
+  let primaryHlsUrls = $derived(selectPrimaryHls(hlsUrls, resolutions));
 
-  async function tabId(): Promise<number> {
+  async function activeTab(): Promise<chrome.tabs.Tab> {
     const [tab] = await chrome.tabs.query({
       active: true,
       currentWindow: true,
     });
     if (!tab?.id) throw new Error("No active tab.");
-    return tab.id;
+    return tab;
   }
-  async function scanHls() {
-    const id = await tabId();
+  async function scanHls(tabId: number) {
     const reply = (await chrome.runtime.sendMessage({
       type: "GET_HLS_URLS",
-      tabId: id,
+      tabId,
     })) as Reply<HlsUrl[]>;
-    if (reply.ok) hlsUrls = reply.value;
+    if (!reply.ok) throw new Error(reply.error);
+    hlsUrls = reply.value;
+    resolutions = {};
+    const scanId = ++resolutionScan;
+    void Promise.all(
+      hlsUrls.map(async ({ url }) => {
+        const resolution = await readHlsResolution(url);
+        if (scanId === resolutionScan) resolutions[url] = resolution;
+      }),
+    );
+  }
+
+  async function readHlsResolution(url: string): Promise<string> {
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (!response.ok) return "Unknown";
+      const manifest = await response.text();
+      const values = [...manifest.matchAll(/RESOLUTION=(\d+)x(\d+)/gi)].map(
+        ([, width, height]) => `${width}×${height}`,
+      );
+      return [...new Set(values)].join(", ") || "Unknown";
+    } catch {
+      return "Unknown";
+    }
   }
   // There is no persistent content-script declaration in the manifest. Inject
   // before each request; the content bundle's window guard makes this idempotent.
-  async function ask<T>(message: Message): Promise<Reply<T>> {
-    const id = await tabId();
+  async function ask<T>(message: Message, tabId?: number): Promise<Reply<T>> {
+    tabId ??= (await activeTab()).id!;
     await chrome.scripting
-      .executeScript({ target: { tabId: id }, files: ["content.js"] })
+      .executeScript({ target: { tabId }, files: ["content.js"] })
       .catch(() => undefined);
-    return chrome.tabs.sendMessage(id, message) as Promise<Reply<T>>;
+    return chrome.tabs.sendMessage(tabId, message) as Promise<Reply<T>>;
+  }
+  function askPlayer<T>(message: Message, tabId: number): Promise<Reply<T>> {
+    const playerMessage: PlayerMessage = { ...message, tabId };
+    return chrome.runtime.sendMessage(playerMessage) as Promise<Reply<T>>;
   }
   // Highest-scoring candidate is the default, but expose all viable videos when
   // pages contain more than one real player.
@@ -44,14 +79,40 @@
     busy = true;
     status = "Scanning this tab…";
     try {
-      await scanHls();
-      const reply = await ask<Candidate[]>({ type: "GET_CANDIDATES" });
+      const tab = await activeTab();
+      const tabId = tab.id!;
+      playerTabId = undefined;
+      await scanHls(tabId);
+      if (tab.url?.startsWith(chrome.runtime.getURL("player.html"))) {
+        playerTabId = tabId;
+        const reply = await askPlayer<Candidate[]>(
+          { type: "GET_CANDIDATES" },
+          tabId,
+        );
+        if (!reply.ok) throw new Error(reply.error);
+        candidates = reply.value;
+        selected = candidates[0]?.id ?? "";
+        status = candidates.length
+          ? ""
+          : "The player video is not ready. Rescan and try again.";
+        return;
+      }
+      if (tab.url?.startsWith(chrome.runtime.getURL(""))) {
+        candidates = [];
+        selected = "";
+        status = hlsUrls.length
+          ? ""
+          : "No HLS stream found in this extension page.";
+        return;
+      }
+      const reply = await ask<Candidate[]>({ type: "GET_CANDIDATES" }, tabId);
       if (!reply.ok) throw new Error(reply.error);
       candidates = reply.value;
       selected = candidates[0]?.id ?? "";
-      status = candidates.length
-        ? ""
-        : "No usable HTML5 video found on this page.";
+      status =
+        candidates.length || hlsUrls.length
+          ? ""
+          : "No usable HTML5 video or HLS stream found on this page.";
     } catch (error) {
       status =
         error instanceof Error ? error.message : "Could not scan this page.";
@@ -59,32 +120,35 @@
       busy = false;
     }
   }
-  function playHls(entry: HlsUrl) {
+  async function playHls(entry: HlsUrl) {
+    const currentTab = await activeTab();
     const url = `${chrome.runtime.getURL("player.html")}?src=${encodeURIComponent(entry.url)}`;
-    void chrome.tabs.create({ url });
+    void chrome.tabs.create({
+      url,
+      index: currentTab.index + 1,
+    });
   }
-  // File contents stay local and cross to the page only as serializable text.
-  async function chooseSubtitle(event: Event) {
-    const file = (event.currentTarget as HTMLInputElement).files?.[0];
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".srt")) {
-      status = "Choose an .srt subtitle file.";
-      return;
+
+  async function copyHls(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      copiedUrl = url;
+      setTimeout(() => {
+        if (copiedUrl === url) copiedUrl = "";
+      }, 1500);
+    } catch {
+      status = "Could not copy the HLS URL.";
     }
-    subtitle = await file.text();
-    subtitleName = file.name;
-    status = `Loaded ${file.name} locally.`;
   }
+
   async function open() {
     if (!selected) return;
     busy = true;
     try {
-      const reply = await ask<null>({
-        type: "OPEN_PIP",
-        id: selected,
-        subtitles: subtitle,
-        subtitleName,
-      });
+      const message: Message = { type: "OPEN_PIP", id: selected };
+      const reply = playerTabId
+        ? await askPlayer<null>(message, playerTabId)
+        : await ask<null>(message);
       if (!reply.ok) throw new Error(reply.error);
       status = "Picture-in-Picture opened.";
     } catch (error) {
@@ -96,12 +160,6 @@
       busy = false;
     }
   }
-  // Positive offset looks ahead in media time, making subtitles appear earlier.
-  async function changeOffset(amount: number) {
-    offset = Math.round((offset + amount) * 10) / 10;
-    await ask<null>({ type: "SET_OFFSET", offset });
-  }
-
   // Scan immediately because opening the popup is the user's discovery action.
   scan();
 </script>
@@ -132,23 +190,34 @@
   <button class="primary" onclick={open} disabled={!selected || busy}>
     Open Picture-in-Picture
   </button>
-  <label>
-    Subtitle (.srt)
-    <input type="file" accept=".srt,text/plain" onchange={chooseSubtitle} />
-  </label>
-  <div class="offset">
-    <span>Subtitle offset: {offset.toFixed(1)}s</span>
-    <button onclick={() => changeOffset(-0.5)}>−0.5</button>
-    <button onclick={() => changeOffset(0.5)}>+0.5</button>
-  </div>
   <button onclick={scan} disabled={busy}>Rescan</button>
   {#if hlsUrls.length}
     <section class="hls">
       <h2>Detected HLS streams</h2>
-      {#each hlsUrls as entry (entry.url)}
+      {#each primaryHlsUrls as entry (entry.url)}
         <div class="stream">
-          <code title={entry.url}>{entry.url}</code>
-          <button class="play-hls" onclick={() => playHls(entry)}>Play</button>
+          <div class="stream-resolution">
+            {resolutions[entry.url] ?? "Loading…"}
+          </div>
+          <code title={entry.url} aria-label={entry.url}>
+            {#if entry.url.length > 48}
+              <span class="url-start">{entry.url.slice(0, -24)}</span>
+              <span class="url-ellipsis" aria-hidden="true">...</span>
+              <span class="url-end">{entry.url.slice(-24)}</span>
+            {:else}
+              {entry.url}
+            {/if}
+          </code>
+          <div class="stream-actions">
+            <button class="play-hls" onclick={() => playHls(entry)}>Play</button
+            >
+            <button
+              class="copy-hls"
+              onclick={() => copyHls(entry.url)}
+              aria-label="Copy HLS URL"
+              >{copiedUrl === entry.url ? "Copied" : "Copy"}</button
+            >
+          </div>
         </div>
       {/each}
     </section>
@@ -173,8 +242,7 @@
     gap: 6px;
     margin: 14px 0;
   }
-  select,
-  input {
+  select {
     max-width: 100%;
   }
   button {
@@ -189,15 +257,6 @@
     width: 100%;
     background: #2563eb;
     color: white;
-  }
-  .offset {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .offset span {
-    flex-basis: 100%;
   }
   .status {
     color: #475569;
@@ -217,6 +276,8 @@
     margin-top: 10px;
   }
   code {
+    display: flex;
+    align-items: center;
     overflow: hidden;
     padding: 6px;
     border-radius: 4px;
@@ -225,9 +286,36 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .url-start {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .url-ellipsis {
+    flex: none;
+    margin: 0 3px;
+    padding: 0 4px 2px;
+    border-radius: 3px;
+    background: #cbd5e1;
+    color: #334155;
+    font-weight: 800;
+  }
+  .url-end {
+    flex: none;
+  }
+  .stream-resolution {
+    color: #0f766e;
+    font-weight: 700;
+  }
   .play-hls {
     background: #16a34a;
     color: white;
+  }
+  .stream-actions {
+    display: flex;
+    gap: 6px;
+  }
+  .stream-actions button {
+    flex: 1;
   }
   a {
     display: block;
