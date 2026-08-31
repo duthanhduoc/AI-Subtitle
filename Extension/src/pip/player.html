@@ -3,120 +3,81 @@
   moves the page's real video into #player, and writes subtitle text via textContent.
 -->
 <main id="player">
-  <!-- Kept separate from the video so local subtitles work without modifying media tracks. -->
-  <div class="subs" aria-live="polite"></div>
-  <!-- Native-looking controls operate on the original page video element. -->
-  <div class="bar">
-    <input
-      class="progress"
-      aria-label="Seek"
-      type="range"
-      min="0"
-      value="0"
-      step="0.01"
-    />
-    <div class="row">
-      <button class="play icon" aria-label="Play"></button>
-      <span class="volume-wrap">
-        <button class="mute icon" aria-label="Mute"></button>
-        <input
-          class="volume"
-          aria-label="Volume"
-          type="range"
-          min="0"
-          max="1"
-          step="0.05"
-        />
-      </span>
-      <span class="time">0:00 / 0:00</span>
-      <span class="spacer"></span>
-      <!-- player.ts switches between these menu pages without a framework. -->
-      <div class="settings-wrap">
-        <button
-          class="settings icon"
-          aria-label="Player settings"
-          aria-haspopup="dialog"
-          aria-expanded="false"
-          aria-controls="settings-menu"
-        ></button>
-        <div
-          id="settings-menu"
-          class="settings-menu"
-          role="dialog"
-          aria-label="Player settings"
-        >
-          <div class="menu-page menu-main">
-            <div class="menu-section">
-              <div class="menu-heading">
-                <span class="menu-icon style-icon" aria-hidden="true"></span>
-                <strong>Subtitle style</strong>
-              </div>
-              <div class="preset" role="group" aria-label="Subtitle style">
-                <button data-preset="netflix">Netflix</button>
-                <button data-preset="cinema">Cinema</button>
-                <button data-preset="minimal">Minimal</button>
-                <button data-preset="contrast">High Contrast</button>
-              </div>
-            </div>
-            <button class="track-picker menu-row" aria-haspopup="listbox">
-              <span class="menu-heading">
-                <span class="menu-icon track-icon" aria-hidden="true"></span>
-                <strong>Subtitle tracks</strong>
-              </span>
-              <span class="menu-control">
-                <span class="menu-value track-value">Off</span>
-                <span class="menu-chevron" aria-hidden="true"></span>
-              </span>
-            </button>
-            <button class="add-srt menu-row">
-              <span class="menu-heading">
-                <span class="menu-icon add-icon" aria-hidden="true"></span>
-                <strong>Add SRT files</strong>
-              </span>
-              <span class="menu-chevron" aria-hidden="true"></span>
-            </button>
-            <input
-              class="srt-file"
-              type="file"
-              accept=".srt,text/plain"
-              multiple
-              hidden
-            />
-            <button class="speed-picker menu-row" aria-haspopup="listbox">
-              <span class="menu-heading">
-                <span class="menu-icon speed-icon" aria-hidden="true"></span>
-                <strong>Playback speed</strong>
-              </span>
-              <span class="menu-control">
-                <span class="menu-value speed-value">1x</span>
-                <span class="menu-chevron" aria-hidden="true"></span>
-              </span>
-            </button>
-          </div>
-          <div class="menu-page choice-page track-page" hidden>
-            <button class="choice-back track-back">
-              <span class="back-icon" aria-hidden="true"></span>
-              <strong>Subtitle tracks</strong>
-            </button>
-            <div
-              class="choice-list track-options"
-              role="listbox"
-              aria-label="Subtitle track"
-            ></div>
-          </div>
-          <div class="menu-page choice-page speed-page" hidden>
-            <button class="choice-back speed-back">
-              <span class="back-icon" aria-hidden="true"></span>
-              <strong>Playback speed</strong>
-            </button>
-            <div
-              class="choice-list speed-options"
-              role="listbox"
-              aria-label="Playback speed"
-            ></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+	<!-- Kept separate from the video so local subtitles work without modifying media tracks. -->
+	<div class="subs" aria-live="polite"></div>
+	<!-- Native-looking controls operate on the original page video element. -->
+	<div class="bar">
+		<input class="progress" aria-label="Seek" type="range" min="0" value="0" step="0.01" />
+		<div class="row">
+			<button class="play icon" aria-label="Play"></button>
+			<span class="volume-wrap">
+				<button class="mute icon" aria-label="Mute"></button>
+				<input class="volume" aria-label="Volume" type="range" min="0" max="1" step="0.05" />
+			</span>
+			<span class="time">0:00 / 0:00</span>
+			<span class="spacer"></span>
+			<!-- player.ts switches between these menu pages without a framework. -->
+			<div class="settings-wrap">
+				<button class="settings icon" aria-label="Player settings" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings-menu"></button>
+				<div id="settings-menu" class="settings-menu" role="dialog" aria-label="Player settings">
+					<div class="menu-page menu-main">
+						<div class="menu-section">
+							<div class="menu-heading">
+								<span class="menu-icon style-icon" aria-hidden="true"></span>
+								<strong>Subtitle style</strong>
+							</div>
+							<div class="preset" role="group" aria-label="Subtitle style">
+								<button data-preset="netflix">Netflix</button>
+								<button data-preset="cinema">Cinema</button>
+								<button data-preset="minimal">Minimal</button>
+								<button data-preset="contrast">High Contrast</button>
+							</div>
+						</div>
+						<button class="track-picker menu-row" aria-haspopup="listbox">
+							<span class="menu-heading">
+								<span class="menu-icon track-icon" aria-hidden="true"></span>
+								<strong>Subtitle tracks</strong>
+							</span>
+							<span class="menu-control">
+								<span class="menu-value track-value">Off</span>
+								<span class="menu-chevron" aria-hidden="true"></span>
+							</span>
+						</button>
+						<button class="add-srt menu-row">
+							<span class="menu-heading">
+								<span class="menu-icon add-icon" aria-hidden="true"></span>
+								<strong>Add SRT files</strong>
+							</span>
+							<span class="menu-chevron" aria-hidden="true"></span>
+						</button>
+						<input class="srt-file" type="file" accept=".srt,text/plain" multiple hidden />
+						<button class="speed-picker menu-row" aria-haspopup="listbox">
+							<span class="menu-heading">
+								<span class="menu-icon speed-icon" aria-hidden="true"></span>
+								<strong>Playback speed</strong>
+							</span>
+							<span class="menu-control">
+								<span class="menu-value speed-value">1x</span>
+								<span class="menu-chevron" aria-hidden="true"></span>
+							</span>
+						</button>
+					</div>
+					<div class="menu-page choice-page track-page" hidden>
+						<button class="choice-back track-back">
+							<span class="back-icon" aria-hidden="true"></span>
+							<strong>Subtitle tracks</strong>
+						</button>
+						<div class="choice-list track-options" role="listbox" aria-label="Subtitle track"></div>
+					</div>
+					<div class="menu-page choice-page speed-page" hidden>
+						<button class="choice-back speed-back">
+							<span class="back-icon" aria-hidden="true"></span>
+							<strong>Playback speed</strong>
+						</button>
+						<div class="choice-list speed-options" role="listbox" aria-label="Playback speed"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
 </main>

@@ -1,20 +1,20 @@
 [
-  {
-    "id": 1001,
-    "priority": 1,
-    "action": {
-      "type": "modifyHeaders",
-      "requestHeaders": [
-        {
-          "header": "Referer",
-          "operation": "set",
-          "value": "https://missav.ws/"
-        }
-      ]
-    },
-    "condition": {
-      "urlFilter": "||surrit.com/",
-      "resourceTypes": ["xmlhttprequest", "media", "other"]
-    }
-  }
+	{
+		"id": 1001,
+		"priority": 1,
+		"action": {
+			"type": "modifyHeaders",
+			"requestHeaders": [
+				{
+					"header": "Referer",
+					"operation": "set",
+					"value": "https://missav.ws/"
+				}
+			]
+		},
+		"condition": {
+			"urlFilter": "||surrit.com/",
+			"resourceTypes": ["xmlhttprequest", "media", "other"]
+		}
+	}
 ]

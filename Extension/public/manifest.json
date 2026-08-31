@@ -1,41 +1,41 @@
 {
-  "manifest_version": 3,
-  "minimum_chrome_version": "116",
-  "name": "Custom Document PiP",
-  "version": "0.1.4",
-  "description": "Custom Document Picture-in-Picture with local SRT subtitles.",
-  "permissions": [
-    "activeTab",
-    "commands",
-    "contextMenus",
-    "scripting",
-    "storage",
-    "unlimitedStorage",
-    "offscreen",
-    "declarativeNetRequestWithHostAccess",
-    "webRequest",
-    "tabCapture"
-  ],
-  "host_permissions": ["<all_urls>"],
-  "declarative_net_request": {
-    "rule_resources": [
-      {
-        "id": "hls-referrer",
-        "enabled": true,
-        "path": "rules/hls.json"
-      }
-    ]
-  },
-  "content_scripts": [
-    {
-      "matches": ["https://*.supremejav.com/*", "https://turbovidhls.com/*"],
-      "js": ["content.js"],
-      "all_frames": true,
-      "run_at": "document_idle"
-    }
-  ],
-  "action": { "default_popup": "popup.html" },
-  "options_page": "options.html",
-  "background": { "service_worker": "service-worker.js", "type": "module" },
-  "icons": { "16": "icon.svg", "48": "icon.svg", "128": "icon.svg" }
+	"manifest_version": 3,
+	"minimum_chrome_version": "116",
+	"name": "Custom Document PiP",
+	"version": "0.1.4",
+	"description": "Custom Document Picture-in-Picture with local SRT subtitles.",
+	"permissions": [
+		"activeTab",
+		"commands",
+		"contextMenus",
+		"scripting",
+		"storage",
+		"unlimitedStorage",
+		"offscreen",
+		"declarativeNetRequestWithHostAccess",
+		"webRequest",
+		"tabCapture"
+	],
+	"host_permissions": ["<all_urls>"],
+	"declarative_net_request": {
+		"rule_resources": [
+			{
+				"id": "hls-referrer",
+				"enabled": true,
+				"path": "rules/hls.json"
+			}
+		]
+	},
+	"content_scripts": [
+		{
+			"matches": ["https://*.supremejav.com/*", "https://turbovidhls.com/*"],
+			"js": ["content.js"],
+			"all_frames": true,
+			"run_at": "document_idle"
+		}
+	],
+	"action": { "default_popup": "popup.html" },
+	"options_page": "options.html",
+	"background": { "service_worker": "service-worker.js", "type": "module" },
+	"icons": { "16": "icon.svg", "48": "icon.svg", "128": "icon.svg" }
 }
