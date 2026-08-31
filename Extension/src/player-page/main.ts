@@ -50,6 +50,22 @@ const createTooltip = (id: string, label: string): HTMLElement => {
 	return tooltip;
 };
 
+const createResolutionBadge = (media: HTMLElementTagNameMap['hlsjs-video']): HTMLElement => {
+	const badge = document.createElement('span');
+	badge.className = 'player-resolution-badge';
+	badge.setAttribute('aria-label', 'Video resolution');
+	badge.hidden = true;
+	const update = () => {
+		const { videoHeight } = media;
+		badge.textContent = videoHeight ? `${videoHeight}p` : '';
+		badge.hidden = !badge.textContent;
+	};
+	media.addEventListener('loadedmetadata', update);
+	media.addEventListener('resize', update);
+	update();
+	return badge;
+};
+
 const createSubtitleTools = (media: HTMLElementTagNameMap['hlsjs-video']): HTMLElement => {
 	const tools = document.createElement('div');
 	tools.className = 'player-subtitle-tools';
@@ -143,7 +159,12 @@ const replaceNativePip = (skin: HTMLElement): void => {
 	const hideStyle = document.createElement('style');
 	// video-skin's DOM is stable; CSS keeps the native control hidden even when
 	// its availability state is recalculated after Document PiP restores media.
-	hideStyle.textContent = 'media-pip-button { display: none !important; }';
+	hideStyle.textContent = `
+		media-pip-button { display: none !important; }
+		.player-resolution-badge {
+			padding: 0 0.55rem;
+		}
+	`;
 	shadowRoot.append(hideStyle);
 
 	const nativePip = shadowRoot.querySelector<HTMLElement>('media-pip-button');
@@ -183,7 +204,7 @@ void chrome.tabs.getCurrent().then((tab) => {
 });
 
 if (!source) {
-	root.textContent = 'No HLS URL was provided.';
+	root.textContent = 'No media URL was provided.';
 } else {
 	const player = document.createElement('video-player');
 	const skin = document.createElement('video-skin');
@@ -194,7 +215,9 @@ if (!source) {
 	hlsMedia.setAttribute('playsinline', '');
 	hlsMedia.setAttribute('preload', 'auto');
 	skin.append(hlsMedia);
-	skin.append(createSubtitleTools(hlsMedia));
+	const subtitleTools = createSubtitleTools(hlsMedia);
+	subtitleTools.prepend(createResolutionBadge(hlsMedia));
+	skin.append(subtitleTools);
 	player.append(skin);
 	root.append(player);
 

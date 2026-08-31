@@ -3,6 +3,16 @@
 	import { findMarkedVideoHlsUrls, selectPrimaryHls } from '../shared/hls';
 	import { formatTime } from '../shared/time';
 
+	const isDirectMediaSource = (source?: string): source is string => {
+		if (!source) return false;
+		try {
+			const url = new URL(source);
+			return (url.protocol === 'http:' || url.protocol === 'https:') && !/\.(m3u8|mpd)(?:$|[?#])/i.test(url.href);
+		} catch {
+			return false;
+		}
+	};
+
 	// Popup state is disposable. Imported tracks that must survive reopening PiP
 	// are owned by the content script's page session instead.
 	let candidates = $state<Candidate[]>([]);
@@ -16,6 +26,8 @@
 	let playerTabId: number | undefined;
 	let sourceTabId: number | undefined;
 	let primaryHlsUrls = $derived(selectPrimaryHls(hlsUrls, resolutions));
+	let selectedCandidate = $derived(candidates.find((candidate) => candidate.id === selected));
+	let canPlaySelected = $derived(isDirectMediaSource(selectedCandidate?.source));
 
 	async function activeTab(): Promise<chrome.tabs.Tab> {
 		const [tab] = await chrome.tabs.query({
@@ -138,6 +150,19 @@
 			index: currentTab.index + 1
 		});
 	}
+	async function playSelected() {
+		const source = selectedCandidate?.source;
+		if (!isDirectMediaSource(source)) {
+			status = 'The selected video has no direct media URL.';
+			return;
+		}
+		const currentTab = await activeTab();
+		const url = `${chrome.runtime.getURL('player.html')}?src=${encodeURIComponent(source)}`;
+		void chrome.tabs.create({
+			url,
+			index: currentTab.index + 1
+		});
+	}
 
 	async function copyHls(url: string) {
 		try {
@@ -188,7 +213,10 @@
 			{candidate.width}×{candidate.height} · {candidate.playing ? 'Playing' : 'Paused'} · {formatTime(candidate.duration)}
 		</p>
 	{/if}
-	<button class="primary" onclick={open} disabled={!selected || busy}> Open Picture-in-Picture </button>
+	<div class="primary-actions">
+		<button class="primary" onclick={open} disabled={!selected || busy}>Picture-in-Picture</button>
+		<button class="play-video" onclick={playSelected} disabled={!canPlaySelected || busy}>Play</button>
+	</div>
 	<button onclick={scan} disabled={busy}>Rescan</button>
 	{#if hlsUrls.length}
 		<section class="hls">
@@ -247,8 +275,19 @@
 		cursor: pointer;
 	}
 	.primary {
-		width: 100%;
 		background: #2563eb;
+		color: white;
+	}
+	.primary-actions {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 6px;
+	}
+	.primary-actions button {
+		min-width: 0;
+	}
+	.play-video {
+		background: #16a34a;
 		color: white;
 	}
 	.status {

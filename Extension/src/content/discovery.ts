@@ -33,6 +33,8 @@ function metrics(video: HTMLVideoElement): VideoMetrics {
 		readyState: video.readyState
 	};
 }
+const mediaSource = (video: HTMLVideoElement): string | undefined =>
+	[video.currentSrc, video.src, ...[...video.querySelectorAll('source')].map((source) => source.src)].find((source) => /^https?:\/\//i.test(source));
 export function discover(): Candidate[] {
 	// Zero-score elements are decorative/tiny/unusable. A deterministic tie-break
 	// prevents the popup selection from jumping between otherwise equal scans.
@@ -41,6 +43,7 @@ export function discover(): Candidate[] {
 			const v = metrics(element);
 			return {
 				id: idFor(element),
+				source: mediaSource(element),
 				width: v.width,
 				height: v.height,
 				duration: v.duration,

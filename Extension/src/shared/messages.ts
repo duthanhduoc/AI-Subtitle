@@ -1,7 +1,9 @@
 // Messages must stay serializable because popup and content script live in
-// separate extension execution contexts. Candidate IDs stand in for DOM nodes.
+// separate extension execution contexts. Candidate IDs stand in for DOM nodes;
+// direct media URLs are included for sources that can be opened in a new tab.
 export type Candidate = {
 	id: string;
+	source?: string;
 	width: number;
 	height: number;
 	duration: number;
