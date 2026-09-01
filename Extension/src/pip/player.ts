@@ -6,8 +6,8 @@ import { ArrowLeft, Captions, Check, ChevronRight, FilePlus2, Gauge, Pause, Pale
 import playerMarkup from './player.html?raw';
 import playerStyles from './player.css?raw';
 
-// Chrome exposes Document PiP at runtime, but the API is not present in every
-// TypeScript DOM version or browser. Keep the local shape limited to what we use.
+// Chrome cung cấp Document PiP ở runtime, nhưng API chưa có trong mọi phiên bản
+// TypeScript DOM hoặc browser. Chỉ khai báo kiểu cục bộ cho phần đang dùng.
 type DocumentPip = {
 	requestWindow(options?: { width?: number; height?: number }): Promise<Window>;
 };
@@ -21,8 +21,8 @@ const speeds = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 const presets: SubtitlePreset[] = ['netflix', 'cinema', 'minimal', 'contrast'];
 const svgNamespace = 'http://www.w3.org/2000/svg';
 
-// Icons must be created by the PiP document. Adopting nodes created by the page
-// document can behave inconsistently across the separate window boundary.
+// Icon phải được tạo bởi tài liệu PiP. Việc nhận node do tài liệu trang tạo có thể
+// hoạt động không nhất quán khi đi qua ranh giới của cửa sổ riêng.
 function lucide(document: Document, [tag, attributes, children]: IconNode): SVGElement {
 	const element = document.createElementNS(svgNamespace, tag);
 	for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, String(value));
@@ -42,8 +42,8 @@ export async function openPlayer(
 	const parent = video.parentNode;
 	if (!parent) throw new Error('The selected video is no longer attached to this page.');
 
-	// Relocation is the core product invariant: keep the real element so MSE/blob/
-	// authenticated playback continues, then restore its exact DOM position and styling.
+	// Việc di chuyển là bất biến cốt lõi của sản phẩm: giữ element thật để playback
+	// MSE/blob/authenticated tiếp tục, rồi khôi phục đúng vị trí DOM và style ban đầu.
 	const original = {
 		parent,
 		next: video.nextSibling,
@@ -60,18 +60,18 @@ export async function openPlayer(
 	let dragging = false;
 	let wasPaused: boolean | undefined;
 	let previousVolume = -1;
-	// Reuse the session array by reference so imports and selection survive closing
-	// and reopening PiP on this URL without persisting subtitle text to disk.
+	// Dùng lại session array theo reference để file import và lựa chọn vẫn còn sau khi
+	// đóng/mở lại PiP trên URL này mà không ghi text phụ đề xuống đĩa.
 	const tracks = subtitleState.tracks;
 	let activeTrack: SubtitleTrack | undefined;
 
-	// Both pagehide and future cleanup paths may call restore; it must be idempotent.
+	// Cả pagehide và các đường dọn dẹp sau này đều có thể gọi restore; hàm phải idempotent.
 	const restore = () => {
 		if (closed) return;
 		closed = true;
 		cancelAnimationFrame(raf);
-		// The original sibling may have disappeared while PiP was open. Appending to
-		// the surviving parent is the safest fallback in that case.
+		// Sibling gốc có thể biến mất khi PiP đang mở. Trong trường hợp đó, append vào
+		// parent còn tồn tại là fallback an toàn nhất.
 		if (original.parent.isConnected) original.parent.insertBefore(video, original.next?.isConnected ? original.next : null);
 		if (original.style === null) video.removeAttribute('style');
 		else video.setAttribute('style', original.style);
@@ -79,14 +79,14 @@ export async function openPlayer(
 	};
 	pip.addEventListener('pagehide', restore, { once: true });
 
-	// Translate durable preference names into CSS values owned by the PiP document.
+	// Chuyển tên preference bền vững thành CSS value do tài liệu PiP quản lý.
 	const fontSize = ({ small: '18px', medium: '24px', large: '30px', xlarge: '36px' } as const)[settings.fontSize ?? 'medium'];
 	const alpha = ({ off: 0, low: 0.25, medium: 0.5, high: 0.75 } as const)[settings.background ?? 'medium'];
 	pip.document.documentElement.style.setProperty('--subtitle-font-size', fontSize);
 	pip.document.documentElement.style.setProperty('--subtitle-background-alpha', String(alpha));
 
-	// Document PiP starts with an isolated empty document. Inject the trusted shell
-	// and styles before moving the live video element into it.
+	// Document PiP bắt đầu với một tài liệu rỗng, cô lập. Inject shell và style đáng tin
+	// cậy trước khi di chuyển video element đang phát vào đó.
 	const style = pip.document.createElement('style');
 	style.textContent = playerStyles;
 	pip.document.head.append(style);
@@ -94,7 +94,7 @@ export async function openPlayer(
 	const template = pip.document.createElement('template');
 	template.innerHTML = playerMarkup;
 	body.replaceChildren(template.content.cloneNode(true));
-	// These selectors are an internal contract with player.html; absence is a build-time defect.
+	// Các selector này là contract nội bộ với player.html; thiếu selector là lỗi lúc build.
 	const $ = <T extends Element>(selector: string) => body.querySelector(selector) as T;
 	const player = $<HTMLElement>('#player'),
 		subtitle = $<HTMLDivElement>('.subs'),
@@ -141,7 +141,7 @@ export async function openPlayer(
 		button.setAttribute('aria-selected', String(selected));
 		const text = pip.document.createElement('span');
 		text.className = 'choice-label';
-		// Track names come from local files, so never interpolate them as HTML.
+		// Tên track đến từ file local, nên không bao giờ interpolate chúng thành HTML.
 		text.textContent = label;
 		const check = pip.document.createElement('span');
 		check.className = 'choice-check';
@@ -169,19 +169,18 @@ export async function openPlayer(
 	const choosePreset = (preset: SubtitlePreset) => {
 		player.dataset.preset = preset;
 		for (const button of menu.querySelectorAll<HTMLButtonElement>('[data-preset]')) button.classList.toggle('active', button.dataset.preset === preset);
-		// Presets are harmless global preferences and persist across sites.
+		// Preset là preference global an toàn và được giữ lại qua các website.
 		void chrome.storage.local.set({ subtitlePreset: preset });
 	};
 	const selectTrack = (index: number) => {
 		const selected = tracks[index];
 		subtitleState.activeTrackIndex = selected ? index : undefined;
-		// Parse on selection rather than import so inactive tracks consume only raw text memory.
+		// Chỉ parse khi chọn thay vì lúc import để track chưa active chỉ dùng bộ nhớ text thô.
 		activeTrack = selected ? parseSrt(selected.text) : undefined;
 		refreshTracks();
 	};
 	const addTracks = (incoming: StoredSubtitle[]) => {
-		// Avoid duplicate menu entries when the same file is imported again, then
-		// activate the first incoming track.
+		// Tránh menu entry trùng khi import lại cùng file, sau đó active track đầu tiên.
 		for (const track of incoming) if (!tracks.some((saved) => saved.name === track.name && saved.text === track.text)) tracks.push(track);
 		selectTrack(tracks.findIndex((track) => track.name === incoming[0]?.name && track.text === incoming[0]?.text));
 	};
@@ -199,7 +198,7 @@ export async function openPlayer(
 	};
 	refreshSpeeds();
 	const seek = (amount: number) => {
-		// Clamp keyboard seeks for both finite media and streams with unknown duration.
+		// Giới hạn seek bằng bàn phím cho cả media hữu hạn và stream chưa biết duration.
 		video.currentTime = Math.max(0, Math.min(video.duration || Infinity, video.currentTime + amount));
 	};
 	const setVolumeIcon = () => {
@@ -210,8 +209,8 @@ export async function openPlayer(
 		mute.setAttribute('aria-label', level === 0 ? 'Unmute' : 'Mute');
 	};
 
-	// Media state may also change through the source page or native controls. A
-	// single animation loop keeps controls and subtitles synchronized with all paths.
+	// Media state cũng có thể thay đổi từ trang nguồn hoặc native controls. Một animation
+	// loop duy nhất giữ controls và phụ đề đồng bộ với mọi đường thay đổi.
 	const render = () => {
 		if (closed) return;
 		progress.max = String(Number.isFinite(video.duration) ? video.duration : 0);
@@ -225,14 +224,14 @@ export async function openPlayer(
 		setVolumeIcon();
 		volume.value = String(video.muted ? 0 : video.volume);
 		time.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
-		// Positive offset looks ahead, so the matching subtitle appears earlier.
-		// textContent is mandatory because SRT contents are untrusted local input.
+		// Offset dương nhìn về phía trước nên phụ đề tương ứng xuất hiện sớm hơn.
+		// Bắt buộc dùng textContent vì nội dung SRT là input local không đáng tin cậy.
 		subtitle.textContent = activeTrack ? (findCue(activeTrack.cues, video.currentTime + offset)?.text ?? '') : '';
 		raf = requestAnimationFrame(render);
 	};
 
-	// Move, do not clone, the page's real media element. Custom media hosts must
-	// move as a whole so their HLS/MSE controller remains attached.
+	// Di chuyển, không clone, media element thật của trang. Media host tùy chỉnh phải
+	// được di chuyển nguyên khối để controller HLS/MSE vẫn gắn với nó.
 	video.setAttribute('style', 'display:block;width:100%;height:100%;object-fit:contain;background:#000');
 	player.prepend(video);
 	play.onclick = () => (video.paused ? void video.play() : video.pause());
@@ -244,7 +243,7 @@ export async function openPlayer(
 		video.muted = video.volume === 0;
 	});
 	const setMenuOpen = (open: boolean) => {
-		// Always reset nested pages so reopening settings has a predictable entry point.
+		// Luôn reset các trang lồng nhau để khi mở lại settings có điểm bắt đầu dễ đoán.
 		showPage(mainPage);
 		menu.classList.toggle('open', open);
 		settingsButton.setAttribute('aria-expanded', String(open));
@@ -264,7 +263,7 @@ export async function openPlayer(
 	menu.querySelectorAll<HTMLButtonElement>('.choice-back').forEach((button) => button.addEventListener('click', () => showPage(mainPage)));
 	addSrt.addEventListener('click', () => srtFile.click());
 	srtFile.addEventListener('change', () => {
-		// File reads are local-only. Filtering by extension avoids presenting unsupported formats.
+		// Đọc file chỉ diễn ra local. Lọc theo extension để không hiển thị format không hỗ trợ.
 		void Promise.all(
 			[...(srtFile.files ?? [])].filter((file) => file.name.toLowerCase().endsWith('.srt')).map(async (file) => ({ name: file.name, text: await file.text() }))
 		).then(addTracks);
@@ -288,7 +287,7 @@ export async function openPlayer(
 			return;
 		}
 		if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
-		// Centralize player shortcuts so each action reuses the same control behavior.
+		// Tập trung phím tắt player để mỗi action dùng lại cùng behavior của control.
 		const map: Record<string, () => void> = {
 			' ': () => play.click(),
 			ArrowLeft: () => seek(-5),
@@ -318,7 +317,7 @@ export async function openPlayer(
 	selectTrack(subtitleState.activeTrackIndex ?? -1);
 	void chrome.storage.local.get({ subtitlePreset: 'netflix' as SubtitlePreset }).then((stored) => {
 		const preset = stored.subtitlePreset as SubtitlePreset;
-		// Storage is another runtime boundary, so reject stale/unknown preset values.
+		// Storage cũng là một runtime boundary, nên từ chối giá trị preset cũ/không rõ.
 		choosePreset(presets.includes(preset) ? preset : 'netflix');
 	});
 	render();

@@ -1,5 +1,7 @@
-# Testing
+# Kiểm thử
 
-Run `bun test`, `bun run check`, and `bun run build`.
+Chạy `bun run check`, `bun run lint`, `bun test` và `bun run build`.
 
-Manual checks: open a normal HTML5 video, open and close PiP and confirm continuous playback/restoration; open Settings in the PiP toolbar, switch every subtitle preset, add multiple multilingual/multiline SRT files, switch tracks, close/reopen PiP on the same URL and confirm the tracks remain selectable; verify a preset remains selected on a different website; seek and adjust offset; test multiple video selection; resize PiP; try an SPA navigation and confirm no page corruption. Fullscreen follows Chrome/site behavior and is not coordinated by v1.
+Kiểm thử thủ công: mở một video HTML5 bình thường, mở và đóng PiP rồi xác nhận phát liên tục và khôi phục đúng vị trí; mở Settings trong thanh công cụ PiP, chuyển qua mọi preset phụ đề, thêm nhiều file SRT đa ngôn ngữ/nhiều dòng, chuyển track, đóng/mở lại PiP trên cùng URL và xác nhận các track vẫn chọn được; kiểm tra preset vẫn được chọn trên website khác; tua và điều chỉnh offset; thử chọn nhiều video; thay đổi kích thước PiP; thử SPA navigation và xác nhận trang không bị hỏng.
+
+Với player page, kiểm tra MP4 trực tiếp và HLS, badge độ phân giải, nút `CC+` với cả SRT/VTT, cookie tự động của trình duyệt và rule `Referer` dành cho `surrit.com`. Kiểm tra HLS cache bị xóa khi tab tải trang mới hoặc đóng. Fullscreen tuân theo hành vi của Chrome/website và không được điều phối trong v1.

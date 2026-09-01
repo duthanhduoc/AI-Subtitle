@@ -13,15 +13,15 @@ contentWindow.__customPipSubtitleSession ??= {
 	tracks: []
 };
 
-// The popup injects content.js before each request. Store the guard on `window`
-// so reinjection does not register duplicate message listeners.
+// Manifest và popup đều có thể nạp content.js. Lưu guard trên `window` để việc
+// inject dự phòng không đăng ký message listener trùng.
 if (!contentWindow.__customPipContentLoaded) {
 	contentWindow.__customPipContentLoaded = true;
 	chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse: (reply: Reply<unknown>) => void) => {
 		if (!isMessage(message)) return;
 
-		// SPA navigation can reuse this content-script world. Treat a new URL as
-		// a new media session so subtitles from the previous title disappear.
+		// SPA navigation có thể dùng lại content-script world này. Coi URL mới là
+		// một media session mới để phụ đề của tiêu đề trước biến mất.
 		const currentSession = contentWindow.__customPipSubtitleSession!;
 		const nextSession = sessionForUrl(currentSession, location.href);
 		contentWindow.__customPipSubtitleSession = nextSession;
@@ -29,8 +29,8 @@ if (!contentWindow.__customPipContentLoaded) {
 			sendResponse({ ok: true, value: discover() });
 			return;
 		}
-		// IDs are intentionally ephemeral; re-resolve after the user's selection
-		// because a site may have replaced its player since the last scan.
+		// ID được cố ý tạo tạm thời; resolve lại sau khi người dùng chọn
+		// vì website có thể đã thay player kể từ lần scan trước.
 		const video = getVideo(message.id);
 		if (!video) {
 			sendResponse({
@@ -41,16 +41,16 @@ if (!contentWindow.__customPipContentLoaded) {
 		}
 
 		if (message.type === 'MARK_HLS_TARGET') {
-			// The marker bridges the isolated content world to a short MAIN-world
-			// lookup without exposing or serializing the page's video element.
+			// Marker nối isolated world của content script với một lần tra cứu ngắn trong
+			// MAIN world mà không để lộ hoặc tuần tự hóa video element của trang.
 			for (const marked of document.querySelectorAll('[data-custom-pip-hls-target]')) marked.removeAttribute('data-custom-pip-hls-target');
 			video.setAttribute('data-custom-pip-hls-target', message.marker);
 			sendResponse({ ok: true, value: null });
 			return;
 		}
 
-		// Extension preferences are global, while subtitle tracks belong to the
-		// current page session. controlsDelay remains stored for auto-hide behavior.
+		// Preference của extension dùng chung cho mọi trang, còn subtitle track chỉ
+		// thuộc session trang hiện tại. controlsDelay vẫn được lưu cho tính năng tự ẩn dự kiến.
 		void chrome.storage.local
 			.get({ fontSize: 'medium', background: 'medium', controlsDelay: 2200 })
 			.then((settings) => openPlayer(video, settings, nextSession))
@@ -61,7 +61,7 @@ if (!contentWindow.__customPipContentLoaded) {
 					error: error instanceof Error ? error.message : 'Could not open Picture-in-Picture.'
 				})
 			);
-		// Chrome requires `true` when sendResponse will run asynchronously.
+		// Chrome yêu cầu `true` khi sendResponse sẽ chạy bất đồng bộ.
 		return true;
 	});
 }

@@ -1,11 +1,11 @@
 <!--
-  Static, trusted PiP shell. player.ts clones this into the isolated PiP document,
-  moves the page's real video into #player, and writes subtitle text via textContent.
+  Shell PiP tĩnh, đáng tin cậy. player.ts clone shell này vào tài liệu PiP cô lập,
+  di chuyển video thật của trang vào #player và ghi text phụ đề bằng textContent.
 -->
 <main id="player">
-	<!-- Kept separate from the video so local subtitles work without modifying media tracks. -->
+	<!-- Tách khỏi video để phụ đề local hoạt động mà không sửa media track. -->
 	<div class="subs" aria-live="polite"></div>
-	<!-- Native-looking controls operate on the original page video element. -->
+	<!-- Controls có giao diện native thao tác trên video element gốc của trang. -->
 	<div class="bar">
 		<input class="progress" aria-label="Seek" type="range" min="0" value="0" step="0.01" />
 		<div class="row">
@@ -16,7 +16,7 @@
 			</span>
 			<span class="time">0:00 / 0:00</span>
 			<span class="spacer"></span>
-			<!-- player.ts switches between these menu pages without a framework. -->
+			<!-- player.ts chuyển giữa các trang menu này mà không dùng framework. -->
 			<div class="settings-wrap">
 				<button class="settings icon" aria-label="Player settings" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings-menu"></button>
 				<div id="settings-menu" class="settings-menu" role="dialog" aria-label="Player settings">

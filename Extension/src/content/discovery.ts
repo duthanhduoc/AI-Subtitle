@@ -1,14 +1,14 @@
 import { scoreVideo, type VideoMetrics } from './scoring';
 import type { Candidate } from '../shared/messages';
 
-// DOM nodes cannot cross the extension message boundary. Assign ephemeral IDs
-// while retaining only weak references, so removed videos can still be collected.
+// DOM node không thể đi qua boundary message của extension. Gán ID tạm thời
+// và chỉ giữ weak reference để video đã bị xóa vẫn có thể được thu gom.
 const ids = new WeakMap<HTMLVideoElement, string>();
 let sequence = 0;
 const idFor = (video: HTMLVideoElement) => ids.get(video) ?? (ids.set(video, `video-${++sequence}`), ids.get(video)!);
 
-// Search every DOM tree the page exposes. Closed shadow roots and cross-origin
-// frames remain inaccessible by browser design and are intentionally skipped.
+// Tìm trong mọi DOM tree mà trang expose. Closed shadow root và frame cross-origin
+// không thể truy cập theo thiết kế browser nên được chủ động bỏ qua.
 function videos(root: ParentNode = document): HTMLVideoElement[] {
 	const result = [...root.querySelectorAll('video')];
 	for (const el of root.querySelectorAll('*')) if (el.shadowRoot) result.push(...videos(el.shadowRoot));
@@ -16,8 +16,8 @@ function videos(root: ParentNode = document): HTMLVideoElement[] {
 	return result;
 }
 
-// Capture only signals needed for ranking; the popup receives no page DOM or
-// media source details.
+// Chỉ thu thập tín hiệu cần cho việc chấm điểm; popup không nhận DOM trang hoặc
+// chi tiết source media.
 function metrics(video: HTMLVideoElement): VideoMetrics {
 	const rect = video.getBoundingClientRect();
 	const style = getComputedStyle(video);
@@ -36,8 +36,8 @@ function metrics(video: HTMLVideoElement): VideoMetrics {
 const mediaSource = (video: HTMLVideoElement): string | undefined =>
 	[video.currentSrc, video.src, ...[...video.querySelectorAll('source')].map((source) => source.src)].find((source) => /^https?:\/\//i.test(source));
 export function discover(): Candidate[] {
-	// Zero-score elements are decorative/tiny/unusable. A deterministic tie-break
-	// prevents the popup selection from jumping between otherwise equal scans.
+	// Phần tử có điểm 0 thường là trang trí/quá nhỏ/không dùng được. Tie-break
+	// xác định giúp lựa chọn trong popup không nhảy giữa các lần scan bằng điểm.
 	return videos()
 		.map((element) => {
 			const v = metrics(element);
@@ -54,8 +54,8 @@ export function discover(): Candidate[] {
 		.filter((x) => x.score > 0)
 		.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
 }
-// Resolve the ID again at action time because sites can replace video elements
-// between discovery and the user's click.
+// Xác định lại ID tại thời điểm thao tác vì website có thể thay video element
+// giữa lúc phát hiện và lúc người dùng click.
 export function getVideo(id: string): HTMLVideoElement | undefined {
 	return videos().find((video) => ids.get(video) === id);
 }

@@ -1,3 +1,3 @@
-# Contributing
+# Đóng góp
 
-Use Bun, keep the player core framework-independent, and preserve PiP restoration and local-only security invariants. Before a pull request run `bun run check`, `bun test`, and `bun run build`; update docs, `TASKS.md`, and the changelog when applicable.
+Dùng Bun, giữ phần lõi player độc lập với framework và bảo toàn việc khôi phục PiP cùng các bất biến bảo mật. Trước khi tạo pull request, chạy `bun run check`, `bun run lint`, `bun test` và `bun run build`; cập nhật tài liệu, `TASKS.md` và changelog khi phù hợp.

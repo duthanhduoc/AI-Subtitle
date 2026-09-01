@@ -1,6 +1,6 @@
-// Messages must stay serializable because popup and content script live in
-// separate extension execution contexts. Candidate IDs stand in for DOM nodes;
-// direct media URLs are included for sources that can be opened in a new tab.
+// Message phải tuần tự hóa được vì popup và content script nằm trong
+// các execution context riêng của extension. Candidate ID đại diện cho DOM node;
+// direct media URL được đưa vào cho source có thể mở ở tab mới.
 export type Candidate = {
 	id: string;
 	source?: string;
@@ -17,8 +17,8 @@ export type PlayerMessage = PlayerCommand & { tabId: number };
 
 export type HlsUrl = { url: string; frameId: number; seenAt: number };
 
-// Runtime messages are an input boundary even though internal callers use the
-// TypeScript union. Handlers still sanitize individual payload values before use.
+// Message runtime là một input boundary dù caller nội bộ dùng TypeScript union.
+// Handler vẫn sanitize từng giá trị payload trước khi sử dụng.
 export function isMessage(value: unknown): value is Message {
 	if (!value || typeof value !== 'object' || !('type' in value)) return false;
 	const message = value as { type?: unknown };

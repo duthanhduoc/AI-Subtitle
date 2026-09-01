@@ -1,5 +1,5 @@
-// Best-effort entry point for callers that need to inject the content bundle
-// into the active tab. The content bundle has its own duplicate-load guard.
+// ENSURE_CONTENT là đường dự phòng để nạp content bundle vào tab đã mở trước
+// khi extension được reload. Bundle có guard riêng để ngăn đăng ký listener trùng.
 chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
 	if (!message || typeof message !== 'object' || !('type' in message) || (message as { type: unknown }).type !== 'ENSURE_CONTENT') return;
 	const tabId = sender.tab?.id ?? (message as { tabId?: number }).tabId;
@@ -7,8 +7,8 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
 		sendResponse({ ok: false, error: 'No active tab.' });
 		return;
 	}
-	// This helper deliberately reports only that the best-effort attempt finished;
-	// a follow-up tab message is responsible for surfacing restricted-page failures.
+	// Helper chỉ báo rằng lần thử dự phòng đã hoàn tất; message gửi tiếp đến tab
+	// sẽ báo lỗi nếu Chrome không cho phép truy cập trang.
 	void chrome.scripting
 		.executeScript({
 			target: { tabId, allFrames: false },
@@ -18,7 +18,7 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
 			() => sendResponse({ ok: true }),
 			() => sendResponse({ ok: true })
 		);
-	// Keep Chrome's response channel alive until executeScript settles.
+	// Giữ kênh phản hồi của Chrome mở cho đến khi executeScript hoàn tất.
 	return true;
 });
 

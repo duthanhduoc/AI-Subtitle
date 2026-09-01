@@ -5,8 +5,8 @@ export function preferTopFrameHls(entries: HlsUrl[]) {
 	return topFrame.length ? topFrame : entries;
 }
 
-// This function is passed directly to chrome.scripting.executeScript and must
-// remain self-contained because MAIN-world execution cannot use module imports.
+// Hàm này được truyền trực tiếp vào chrome.scripting.executeScript và phải
+// tự chứa vì thực thi trong MAIN-world không dùng được module import.
 export function findMarkedVideoHlsUrls(
 	marker: string,
 	scope: Record<string, unknown> = window as unknown as Record<string, unknown>,
@@ -27,7 +27,7 @@ export function findMarkedVideoHlsUrls(
 			const url = new URL(hls.url, pageUrl).href;
 			if (/\.m3u8(?:$|[?#])/i.test(url)) urls.add(url);
 		} catch {
-			// Window properties may be cross-origin or implemented by throwing getters.
+			// Window property có thể là cross-origin hoặc là getter ném exception.
 			continue;
 		}
 	}
@@ -43,8 +43,8 @@ export function isLikelyMasterHls(url: string) {
 }
 
 export function selectPrimaryHls(entries: HlsUrl[], resolutions: Record<string, string>) {
-	// A top-level player is more likely to be the page's content than HLS loaded
-	// by advertising frames. Keep iframe streams as the fallback for embeds.
+	// Player ở top-level có khả năng là nội dung trang hơn HLS do frame quảng cáo tải.
+	// Giữ stream trong iframe làm fallback cho embed.
 	const candidates = preferTopFrameHls(entries);
 	const confirmedMasters = candidates.filter(({ url }) => {
 		const resolution = resolutions[url];

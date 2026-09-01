@@ -11,7 +11,7 @@ body {
 		sans-serif;
 }
 
-/* The actual page video is relocated into this full-window container. */
+/* Video thật của trang được di chuyển vào container toàn cửa sổ này. */
 #player {
 	height: 100%;
 	position: relative;
@@ -26,7 +26,7 @@ video {
 	background: #000;
 }
 
-/* Subtitle presentation is driven by stored size/background CSS variables. */
+/* Cách hiển thị phụ đề lấy từ các CSS variable về size/background đã lưu. */
 .subs {
 	--preset-font-family: Roboto, Arial, sans-serif;
 	--preset-font-weight: 700;
@@ -52,7 +52,7 @@ video {
 	border-radius: 3px;
 }
 
-/* Presets change presentation only; cue parsing and timing remain identical. */
+/* Preset chỉ thay đổi cách hiển thị; việc parse cue và timing giữ nguyên. */
 #player[data-preset='netflix'] .subs {
 	--preset-font-family: Arial, sans-serif;
 	--preset-font-weight: 700;
@@ -107,7 +107,7 @@ video {
 	}
 }
 
-/* Controls stay unobtrusive until pointer or keyboard focus enters the player. */
+/* Controls không gây vướng cho đến khi pointer hoặc keyboard focus đi vào player. */
 .bar {
 	position: absolute;
 	bottom: 0;
@@ -228,7 +228,7 @@ input {
 	flex: 1;
 }
 
-/* Compact, page-based settings panel used inside the small PiP viewport. */
+/* Panel setting gọn theo từng trang, dùng trong viewport PiP nhỏ. */
 .settings-wrap {
 	position: relative;
 }

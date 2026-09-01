@@ -1,29 +1,30 @@
-# AI Coding Agent Guide
+# Hướng dẫn cho agent lập trình AI
 
-## Purpose
+## Mục đích
 
-Custom Document PiP is a local-only Chrome MV3 extension for existing HTML5 videos and SRT subtitles.
+Custom Document PiP là extension Chrome MV3 xử lý dữ liệu tại trình duyệt, dành cho video HTML5, luồng HLS và phụ đề local.
 
-## Architecture
+## Kiến trúc
 
-- `src/popup`: Svelte 5 popup; it only sends serializable messages.
-- `src/content`: video discovery and the framework-free PiP orchestration.
-- `src/pip`: Document PiP DOM UI and relocator lifecycle.
-- `src/subtitles`: normalized cue types, SRT parser, and binary search.
-- `src/background`: MV3 worker retained for extension entry completeness.
+- `src/popup`: popup Svelte 5; phát hiện media và chỉ gửi các message có thể tuần tự hóa.
+- `src/content`: phát hiện video và điều phối PiP không dùng framework.
+- `src/pip`: giao diện DOM của Document PiP và vòng đời di chuyển phần tử.
+- `src/player-page`: player riêng của extension cho MP4/HLS, phụ đề SRT/VTT và badge độ phân giải.
+- `src/subtitles`: kiểu cue đã chuẩn hóa, bộ phân tích SRT và tìm kiếm nhị phân.
+- `src/background`: service worker MV3 phát hiện URL HLS theo tab, giữ cache trong phiên và hỗ trợ nạp content script.
 
-## Invariants
+## Bất biến
 
-Do not create a replacement video from `src`; relocate the actual element and restore it idempotently. Subtitle file text is untrusted: never use `innerHTML`. PiP core must remain TypeScript/DOM code, not Svelte. Keep all processing local and do not add DRM bypass, ad blocking, tracking, or remote code.
+Không tạo video thay thế từ `src`; hãy di chuyển phần tử thật và khôi phục nó theo cách idempotent. Nội dung file phụ đề là dữ liệu không đáng tin cậy; không bao giờ dùng `innerHTML`. Phần lõi PiP phải tiếp tục là code TypeScript/DOM, không phải Svelte. Không gửi dữ liệu tới backend của extension và không thêm DRM bypass, chặn quảng cáo, theo dõi hoặc code từ xa.
 
-## Workflow
+## Quy trình
 
-Use Bun: `bun install`, then `bun run check`, `bun test`, and `bun run build`. Build output is `dist/`. Update relevant docs and `TASKS.md` for meaningful work. Keep runtime message validation at boundaries and use strict TypeScript without `any`.
+Dùng Bun: `bun install`, sau đó chạy `bun run check`, `bun run lint`, `bun test` và `bun run build`. Kết quả build nằm trong `dist/`. Cập nhật tài liệu liên quan và `TASKS.md` khi có thay đổi đáng kể. Kiểm tra message tại các ranh giới runtime và dùng TypeScript strict, không dùng `any`.
 
-## Code comments
+## Comment trong code
 
-When generating or changing code, add concise English comments for business rules, invariants, lifecycle/cleanup behavior, security boundaries, non-obvious algorithms, and important tradeoffs. Explain why the code exists or what must remain true; do not narrate obvious syntax, assignments, imports, or every line. Keep comments accurate when behavior changes, and remove comments that have become stale.
+Khi tạo hoặc thay đổi code, thêm comment ngắn gọn bằng tiếng Việt cho quy tắc nghiệp vụ, bất biến, vòng đời/dọn dẹp, ranh giới bảo mật, thuật toán không hiển nhiên và đánh đổi quan trọng. Giải thích vì sao code tồn tại hoặc điều gì phải luôn đúng; không mô tả cú pháp hiển nhiên, phép gán, import hay từng dòng. Cập nhật comment khi hành vi thay đổi và xóa comment đã lỗi thời.
 
-## Caution
+## Thận trọng
 
-`src/pip/player.ts` owns relocation and cleanup. `public/manifest.json` must match produced files. See `docs/` for lifecycle, decisions, testing, product scope, and limitations.
+`src/pip/player.ts` quản lý việc di chuyển và dọn dẹp. `public/manifest.json` phải khớp với các file được tạo ra. Xem `docs/` để biết vòng đời, quyết định, kiểm thử, phạm vi sản phẩm và các giới hạn.

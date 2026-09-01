@@ -5,7 +5,7 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 export default defineConfig({
 	plugins: [svelte()],
 	base: './',
-	// Popup, options and the HLS player are separate extension pages.
+	// Popup, trang tùy chọn và HLS player là các trang extension riêng biệt.
 	build: {
 		rollupOptions: {
 			input: {

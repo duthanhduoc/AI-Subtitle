@@ -1,5 +1,5 @@
-// Player timestamps omit the hour segment until it is needed, matching common
-// media-player UI while keeping invalid/live durations safe.
+// Timestamp của player bỏ phần giờ cho đến khi cần, phù hợp UI media player
+// phổ biến và vẫn an toàn với duration không hợp lệ/live.
 export function formatTime(seconds: number): string {
 	if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
 	const total = Math.floor(seconds);

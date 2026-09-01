@@ -1,37 +1,36 @@
 # Custom Document PiP
 
-A local-first Manifest V3 Chrome extension that moves a selected HTML5 video into a custom Document Picture-in-Picture window and renders local SRT subtitles.
+Extension Chrome Manifest V3 di chuyển video HTML5 được chọn vào cửa sổ Document Picture-in-Picture tùy chỉnh, đồng thời có player riêng cho MP4/HLS và phụ đề local.
 
-## Features
+## Tính năng
 
-- Scores visible videos (including open Shadow DOM) and lets you choose when needed.
-- Reuses the existing video element, avoiding a second stream whenever the site allows it.
-- Custom, non-dimming PiP controls; seeking, volume, playback speed, and keyboard controls.
-- Detects HLS `.m3u8` playlists from the tab and opens playable streams in an extension-owned player page.
-- Local UTF-8 SRT parsing and safe `textContent` subtitle rendering.
-- No network requests, analytics, accounts, or subtitle upload.
+- Chấm điểm các video đang hiển thị (bao gồm Shadow DOM mở) và cho phép chọn khi cần.
+- Tái sử dụng phần tử video hiện có, tránh mở luồng thứ hai khi website cho phép.
+- Điều khiển PiP tùy chỉnh, không làm tối; tua, âm lượng, tốc độ phát và phím tắt.
+- Phát hiện playlist HLS `.m3u8` theo tab và mở MP4/HLS trong player page của extension.
+- Hiển thị độ phân giải video; player page nhận phụ đề SRT/VTT, còn Document PiP nhận SRT.
+- Phân tích phụ đề local và hiển thị nội dung không đáng tin cậy bằng API DOM an toàn.
+- Không có backend, tài khoản, analytics, telemetry hoặc upload phụ đề. Request media chỉ được gửi tới máy chủ nguồn để phát video.
 
-## Install and run
+## Cài đặt và chạy
 
 ```sh
 bun install
 bun run build
 ```
 
-Open `chrome://extensions`, enable Developer mode, select **Load unpacked**, and choose `dist/`.
+Mở `chrome://extensions`, bật Developer mode, chọn **Load unpacked** và chọn `dist/`.
 
-Use the extension button on a tab with an HTML5 video, select a candidate if required, optionally choose a `.srt`, and open PiP. Positive subtitle offset means the cue is selected at `video.currentTime + offset`, so subtitles appear earlier.
+Dùng nút extension trên tab có video HTML5, chọn video nếu cần rồi mở Picture-in-Picture. Sau khi PiP mở, dùng Settings để thêm file `.srt`. Offset phụ đề dương nghĩa là cue được chọn tại `video.currentTime + offset`, vì vậy phụ đề sẽ xuất hiện sớm hơn.
 
-Keyboard shortcuts in PiP: Space play/pause; Left/Right ±5s; J/L ±10s; M mute; Up/Down volume; `[`/`]` subtitle offset.
+Với MP4 có URL trực tiếp, dùng nút **Play**. Với HLS, dùng **Play** trong phần **Detected HLS streams**. Cả hai mở player page của extension; nút **CC+** trong thanh điều khiển nhận file `.srt` hoặc `.vtt`.
 
-## Development
+Phím tắt trong PiP: Space play/pause; Left/Right ±5s; J/L ±10s; M tắt tiếng; Up/Down âm lượng; `[`/`]` offset phụ đề.
 
-`bun run dev`, `bun run check`, `bun run lint`, `bun test`, and `bun run build` are the project checks. See [AGENTS.md](AGENTS.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and [docs/TESTING.md](docs/TESTING.md).
+## Phát triển
 
-## Limitations
+`bun run dev`, `bun run check`, `bun run lint`, `bun test` và `bun run build` là các kiểm tra của dự án. Xem [AGENTS.md](AGENTS.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) và [docs/TESTING.md](docs/TESTING.md).
 
-Document PiP requires current desktop Chrome. DRM, cross-origin frames, closed Shadow DOM, and players tightly coupled to their original DOM may fail safely. No DRM bypass, ad blocking, cloud storage, or legacy subtitle-encoding conversion is attempted.
+## Giới hạn
 
-## Screenshots
-
-Screenshots will be added once the extension is exercised in Chrome.
+Document PiP yêu cầu Chrome desktop hiện đại. DRM, frame cross-origin, Shadow DOM đóng và player gắn chặt với DOM gốc có thể hoạt động không thành công nhưng vẫn được xử lý an toàn. Không thực hiện DRM bypass, chặn quảng cáo, lưu trữ cloud hoặc chuyển đổi encoding phụ đề cũ.

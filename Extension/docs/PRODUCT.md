@@ -1,3 +1,3 @@
-# Product
+# Sản phẩm
 
-The target user wants a clean, controllable floating player for a webpage video and a local SRT file. V1 detects a video, lets the user choose one, moves it into Document PiP, supplies controls and SRT offset, then restores it on close. Failure states include no video, stale video, unsupported Document PiP, and site/DRM incompatibility. Non-goals: DRM bypass, ad blocker, accounts, cloud storage, translation, and ASS rendering.
+Người dùng mục tiêu muốn một player nổi gọn cho video trên webpage hoặc một tab riêng do extension quản lý. V1 phát hiện và cho phép chọn video, di chuyển phần tử thật vào Document PiP, cung cấp bộ điều khiển cùng offset SRT rồi khôi phục khi đóng. Với URL MP4/HLS trực tiếp, extension có thể mở player page, hiển thị độ phân giải và nhận phụ đề SRT/VTT. Các trạng thái lỗi gồm không có video, video cũ không còn hợp lệ, Document PiP không được hỗ trợ, URL media hết hạn, lỗi CORS/header và không tương thích với website/DRM. Ngoài phạm vi: DRM bypass, chặn quảng cáo, tài khoản, cloud storage, dịch phụ đề và render ASS.

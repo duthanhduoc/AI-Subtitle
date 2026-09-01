@@ -26,7 +26,6 @@ video-skin {
 	position: relative;
 }
 
-
 .player-subtitle-tools {
 	position: absolute;
 	right: 1.25rem;
@@ -51,7 +50,7 @@ video-skin {
 	border-radius: 0.4rem;
 }
 
-/* The button is moved into video-skin's control group when the packaged skin is ready. */
+/* Button được di chuyển vào nhóm control của video-skin khi skin đóng gói sẵn sàng. */
 .player-subtitle-tools .player-subtitle-upload {
 	min-width: 2.25rem;
 }

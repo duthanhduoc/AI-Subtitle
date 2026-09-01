@@ -13,8 +13,8 @@
 		}
 	};
 
-	// Popup state is disposable. Imported tracks that must survive reopening PiP
-	// are owned by the content script's page session instead.
+	// State của popup là tạm thời. Track đã import cần tồn tại qua lần mở lại PiP
+	// được sở hữu bởi page session của content script.
 	let candidates = $state<Candidate[]>([]);
 	let selected = $state('');
 	let status = $state('Scanning this tab…');
@@ -79,8 +79,8 @@
 			return 'Unknown';
 		}
 	}
-	// There is no persistent content-script declaration in the manifest. Inject
-	// before each request; the content bundle's window guard makes this idempotent.
+	// Manifest nạp content script tự động, nhưng tab đã mở trước khi extension reload
+	// có thể chưa có bundle mới. Lần inject dự phòng an toàn nhờ guard trên `window`.
 	async function ask<T>(message: Message, tabId?: number): Promise<Reply<T>> {
 		tabId ??= (await activeTab()).id!;
 		await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] }).catch(() => undefined);
@@ -90,8 +90,8 @@
 		const playerMessage: PlayerMessage = { ...message, tabId };
 		return chrome.runtime.sendMessage(playerMessage) as Promise<Reply<T>>;
 	}
-	// Highest-scoring candidate is the default, but expose all viable videos when
-	// pages contain more than one real player.
+	// Candidate có điểm cao nhất là mặc định, nhưng hiển thị mọi video dùng được khi
+	// trang có nhiều hơn một player thật.
 	async function scan() {
 		busy = true;
 		status = 'Scanning this tab…';
@@ -190,7 +190,7 @@
 			busy = false;
 		}
 	}
-	// Scan immediately because opening the popup is the user's discovery action.
+	// Quét ngay vì việc mở popup chính là thao tác người dùng yêu cầu phát hiện.
 	scan();
 </script>
 

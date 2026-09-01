@@ -2,11 +2,11 @@
 	type Settings = {
 		fontSize: 'small' | 'medium' | 'large' | 'xlarge';
 		background: 'off' | 'low' | 'medium' | 'high';
-		// Stored for the planned timed auto-hide; current controls use CSS hover/focus.
+		// Được lưu cho tính năng tự ẩn theo thời gian dự kiến; controls hiện dùng CSS hover/focus.
 		controlsDelay: number;
 	};
-	// Defaults are also passed to storage.get so older installs automatically gain
-	// newly introduced settings without a migration step.
+	// Giá trị mặc định cũng được truyền vào storage.get để bản cài cũ tự nhận setting
+	// mới mà không cần bước chuyển đổi dữ liệu.
 	const defaults: Settings = {
 		fontSize: 'medium',
 		background: 'medium',
@@ -18,7 +18,7 @@
 		const stored = await chrome.storage.local.get(defaults);
 		settings = { ...defaults, ...stored } as Settings;
 	}
-	// Preferences are global extension settings; subtitle file contents are never stored here.
+	// Đây là setting dùng chung của extension; nội dung file phụ đề không bao giờ được lưu ở đây.
 	async function save() {
 		await chrome.storage.local.set(settings);
 		saved = true;

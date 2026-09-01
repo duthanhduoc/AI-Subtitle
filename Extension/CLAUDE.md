@@ -1,3 +1,3 @@
-# Project instructions
+# Hướng dẫn dự án
 
-Read [AGENTS.md](AGENTS.md) before making changes. It is the canonical repository guide.
+Đọc [AGENTS.md](AGENTS.md) trước khi thay đổi. Đây là hướng dẫn chuẩn của repository.

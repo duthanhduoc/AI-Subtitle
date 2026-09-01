@@ -157,8 +157,8 @@ const replaceNativePip = (skin: HTMLElement): void => {
 	if (!shadowRoot) return;
 
 	const hideStyle = document.createElement('style');
-	// video-skin's DOM is stable; CSS keeps the native control hidden even when
-	// its availability state is recalculated after Document PiP restores media.
+	// DOM của video-skin ổn định; CSS giữ native control bị ẩn ngay cả khi
+	// trạng thái khả dụng được tính lại sau khi Document PiP khôi phục media.
 	hideStyle.textContent = `
 		media-pip-button { display: none !important; }
 		.player-resolution-badge {

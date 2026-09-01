@@ -1,8 +1,8 @@
 import type { SubtitleCue, SubtitleTrack } from './types';
 
 const time = (value: string): number | undefined => {
-	// Accept common SRT variants: optional hours, comma/dot separator and 1-3
-	// millisecond digits (".5" means 500 ms, not 5 ms).
+	// Chấp nhận các biến thể SRT phổ biến: giờ tùy chọn, dấu phẩy/chấm phân cách
+	// và 1-3 chữ số mili giây (".5" nghĩa là 500 ms, không phải 5 ms).
 	const match = value.trim().match(/^(?:(\d+):)?(\d{2}):(\d{2})[,.](\d{1,3})$/);
 	if (!match) return undefined;
 	const [, h = '0', m = '0', s = '0', ms = '0'] = match;
@@ -12,12 +12,12 @@ const time = (value: string): number | undefined => {
 
 export function parseSrt(input: string): SubtitleTrack {
 	const cues: SubtitleCue[] = [];
-	// Normalize UTF-8 BOM and platform newlines before splitting cue blocks.
+	// Chuẩn hóa BOM UTF-8 và newline theo platform trước khi tách các cue block.
 	for (const block of input
 		.replace(/^\uFEFF/, '')
 		.replace(/\r\n?/g, '\n')
 		.split(/\n{2,}/)) {
-		// Locate the timing row instead of assuming a numeric cue ID is present.
+		// Tìm dòng timing thay vì giả định cue ID phải là số.
 		const lines = block.split('\n').filter(Boolean);
 		const timingIndex = lines.findIndex((line) => line.includes('-->'));
 		if (timingIndex < 0) continue;
@@ -26,8 +26,8 @@ export function parseSrt(input: string): SubtitleTrack {
 			.slice(timingIndex + 1)
 			.join('\n')
 			.trim();
-		// Subtitle files are untrusted local input. Ignore malformed blocks while
-		// preserving valid cues from the rest of the file.
+		// File phụ đề là input local không đáng tin cậy. Bỏ qua block sai định dạng
+		// nhưng vẫn giữ cue hợp lệ ở phần còn lại của file.
 		if (start === undefined || end === undefined || end < start || !text) continue;
 		cues.push({
 			id: timingIndex ? lines[0] : undefined,
@@ -36,7 +36,7 @@ export function parseSrt(input: string): SubtitleTrack {
 			text
 		});
 	}
-	// Sorting is the contract required by the binary-search renderer.
+	// Việc sắp xếp là contract mà renderer dùng binary search yêu cầu.
 	return {
 		cues: cues.sort((a, b) => a.startTime - b.startTime || a.endTime - b.endTime)
 	};
