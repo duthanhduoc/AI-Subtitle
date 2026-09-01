@@ -39,16 +39,21 @@ function persistHlsCache() {
 	return pendingWrite;
 }
 
+function clearHlsCache(tabId: number) {
+	hlsByTab.delete(tabId);
+	return persistHlsCache();
+}
+
 chrome.webRequest.onBeforeRequest.addListener(
 	(details) => {
 		const tabId = details.tabId;
 		if (tabId < 0 || !/\.m3u8(?:$|[?#])/i.test(details.url)) return;
 		void cacheReady.then(() => {
 			const current = hlsByTab.get(tabId) ?? [];
-			const next = preferTopFrameHls([
-				{ url: details.url, frameId: details.frameId, seenAt: Date.now() },
-				...current.filter((entry) => entry.url !== details.url)
-			]).slice(0, 10);
+			// Giữ thứ tự ổn định: request trùng không di chuyển URL, URL mới nối vào cuối.
+			const next = current.some((entry) => entry.url === details.url)
+				? current
+				: [...current, { url: details.url, frameId: details.frameId, seenAt: Date.now() }];
 			hlsByTab.set(tabId, next);
 			return persistHlsCache();
 		});
@@ -56,18 +61,17 @@ chrome.webRequest.onBeforeRequest.addListener(
 	{ urls: ['*://*/*.m3u8*'] }
 );
 
-chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-	if (changeInfo.status !== 'loading') return;
-	void cacheReady.then(() => {
-		hlsByTab.delete(tabId);
-		return persistHlsCache();
-	});
+// Document mới và navigation SPA đều bắt đầu nội dung mới nên phải tách cache HLS.
+chrome.webNavigation.onCommitted.addListener(({ tabId, frameId }) => {
+	if (tabId < 0 || frameId !== 0) return;
+	void cacheReady.then(() => clearHlsCache(tabId));
+});
+chrome.webNavigation.onHistoryStateUpdated.addListener(({ tabId, frameId }) => {
+	if (tabId < 0 || frameId !== 0) return;
+	void cacheReady.then(() => clearHlsCache(tabId));
 });
 chrome.tabs.onRemoved.addListener((tabId) => {
-	void cacheReady.then(() => {
-		hlsByTab.delete(tabId);
-		return persistHlsCache();
-	});
+	void cacheReady.then(() => clearHlsCache(tabId));
 });
 
 chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
@@ -82,4 +86,3 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
 	return true;
 });
 import type { HlsUrl } from '../shared/messages';
-import { preferTopFrameHls } from '../shared/hls';

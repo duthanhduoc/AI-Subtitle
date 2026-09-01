@@ -42,16 +42,25 @@ export function isLikelyMasterHls(url: string) {
 	}
 }
 
-export function selectPrimaryHls(entries: HlsUrl[], resolutions: Record<string, string>) {
-	// Player ở top-level có khả năng là nội dung trang hơn HLS do frame quảng cáo tải.
-	// Giữ stream trong iframe làm fallback cho embed.
-	const candidates = preferTopFrameHls(entries);
-	const confirmedMasters = candidates.filter(({ url }) => {
-		const resolution = resolutions[url];
-		return resolution && resolution !== 'Unknown';
-	});
-	if (confirmedMasters.length) return confirmedMasters;
+export function selectPrimaryHls(entries: HlsUrl[]) {
+	// Chỉ loại URL trùng; mọi frame và mọi loại playlist còn lại đều được hiển thị.
+	return [...new Map(entries.map((entry) => [entry.url, entry])).values()];
+}
 
-	const likelyMasters = candidates.filter(({ url }) => isLikelyMasterHls(url));
-	return likelyMasters.length ? likelyMasters : candidates.slice(0, 1);
+export function parseHlsDuration(manifest: string): number | 'Live' | undefined {
+	const values = [...manifest.matchAll(/#EXTINF:\s*([\d.]+)/gi)].map(([, value]) => Number(value));
+	if (!values.length || values.some((value) => !Number.isFinite(value))) return undefined;
+	return /#EXT-X-ENDLIST\b/i.test(manifest) ? values.reduce((total, value) => total + value, 0) : 'Live';
+}
+
+export function firstHlsVariant(manifest: string, baseUrl: string): string | undefined {
+	const match = manifest.match(/#EXT-X-STREAM-INF:[^\r\n]*\r?\n([^\r\n#]+)/i);
+	if (!match) return undefined;
+	const variant = match[1];
+	if (!variant) return undefined;
+	try {
+		return new URL(variant.trim(), baseUrl).href;
+	} catch {
+		return undefined;
+	}
 }

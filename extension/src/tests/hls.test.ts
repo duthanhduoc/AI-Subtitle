@@ -1,20 +1,21 @@
 import { expect, test } from 'vitest';
-import { findMarkedVideoHlsUrls, preferTopFrameHls, selectPrimaryHls } from '../shared/hls';
+import { findMarkedVideoHlsUrls, firstHlsVariant, parseHlsDuration, preferTopFrameHls, selectPrimaryHls } from '../shared/hls';
+
+test('parses VOD and live HLS durations', () => {
+	const vod = '#EXTINF:6,\n1.ts\n#EXTINF:4.5,\n2.ts\n#EXT-X-ENDLIST';
+	expect(parseHlsDuration(vod)).toBe(10.5);
+	expect(parseHlsDuration('#EXTINF:6,\n1.ts')).toBe('Live');
+	expect(firstHlsVariant('#EXT-X-STREAM-INF:BANDWIDTH=1\nlow/index.m3u8', 'https://example.com/master.m3u8')).toBe('https://example.com/low/index.m3u8');
+});
 import type { HlsUrl } from '../shared/messages';
 
 const entry = (url: string): HlsUrl => ({ url, frameId: 0, seenAt: 0 });
 
-test('shows the master playlist instead of its HLS renditions', () => {
+test('shows every unique HLS playlist', () => {
 	const master = entry('https://stream.example/video.m3u8?token=1');
 	const rendition = entry('https://cdn.example/rendition.m3u8?token=1');
 
-	expect(
-		selectPrimaryHls([rendition, master], {
-			[master.url]: '1280×720, 1920×1080',
-			[rendition.url]: 'Unknown'
-		})
-	).toEqual([master]);
-	expect(selectPrimaryHls([rendition], {})).toEqual([rendition]);
+	expect(selectPrimaryHls([rendition, master, rendition])).toEqual([rendition, master]);
 });
 
 test('prefers page HLS over unrelated iframe streams', () => {
@@ -25,12 +26,7 @@ test('prefers page HLS over unrelated iframe streams', () => {
 	};
 
 	expect(preferTopFrameHls([ad, page])).toEqual([page]);
-	expect(
-		selectPrimaryHls([ad, page], {
-			[ad.url]: '1920×1080',
-			[page.url]: 'Unknown'
-		})
-	).toEqual([page]);
+	expect(selectPrimaryHls([ad, page])).toEqual([ad, page]);
 	expect(preferTopFrameHls([ad])).toEqual([ad]);
 });
 

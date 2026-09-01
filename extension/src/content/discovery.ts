@@ -43,6 +43,7 @@ export function discover(): Candidate[] {
 			const v = metrics(element);
 			return {
 				id: idFor(element),
+				frameId: 0,
 				source: mediaSource(element),
 				width: v.width,
 				height: v.height,

@@ -3,6 +3,7 @@
 // direct media URL được đưa vào cho source có thể mở ở tab mới.
 export type Candidate = {
 	id: string;
+	frameId: number;
 	source?: string;
 	width: number;
 	height: number;

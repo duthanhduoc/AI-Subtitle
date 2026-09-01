@@ -9,6 +9,7 @@ import { isPlayerMessage, type Reply } from '../shared/messages';
 import { srtToVtt } from '../subtitles/srt';
 import type { SubtitleState } from '../subtitles/types';
 import { PictureInPicture2, type IconNode } from 'lucide';
+import { ImageFragmentLoader } from './image-fragment-loader';
 
 const params = new URLSearchParams(location.search);
 const source = params.get('src');
@@ -53,15 +54,19 @@ const createTooltip = (id: string, label: string): HTMLElement => {
 const createResolutionBadge = (media: HTMLElementTagNameMap['hlsjs-video']): HTMLElement => {
 	const badge = document.createElement('span');
 	badge.className = 'player-resolution-badge';
-	badge.setAttribute('aria-label', 'Video resolution');
 	badge.hidden = true;
 	const update = () => {
 		const { videoHeight } = media;
-		badge.textContent = videoHeight ? `${videoHeight}p` : '';
+		const hasQualityOptions = (media.engine?.levels.length ?? 0) > 1;
+		badge.textContent = videoHeight ? `${videoHeight}p${hasQualityOptions ? ' ▾' : ''}` : '';
+		badge.setAttribute('aria-label', hasQualityOptions ? 'Video resolution; quality selection available' : 'Video resolution');
+		badge.title = hasQualityOptions ? 'Multiple video qualities available in Settings' : 'Single video quality';
+		badge.dataset.quality = hasQualityOptions ? 'multiple' : 'single';
 		badge.hidden = !badge.textContent;
 	};
 	media.addEventListener('loadedmetadata', update);
 	media.addEventListener('resize', update);
+	media.addEventListener('durationchange', update);
 	update();
 	return badge;
 };
@@ -211,7 +216,13 @@ if (!source) {
 	hlsMedia = document.createElement('hlsjs-video');
 
 	hlsMedia.slot = 'media';
-	hlsMedia.source = { src: source };
+	hlsMedia.source = {
+		src: source,
+		preferPlayback: 'mse',
+		// fLoader chỉ xử lý fragment HLS; progressive tắt để loader luôn nhận đủ segment
+		// trước khi kiểm tra wrapper PNG và chuyển phần MPEG-TS cho hls.js.
+		engine: { hlsJs: { fLoader: ImageFragmentLoader, progressive: false } }
+	};
 	hlsMedia.setAttribute('playsinline', '');
 	hlsMedia.setAttribute('preload', 'auto');
 	skin.append(hlsMedia);

@@ -9,6 +9,7 @@
 		"commands",
 		"contextMenus",
 		"scripting",
+		"webNavigation",
 		"storage",
 		"unlimitedStorage",
 		"offscreen",

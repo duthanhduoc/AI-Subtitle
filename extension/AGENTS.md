@@ -21,6 +21,8 @@ Không tạo video thay thế từ `src`; hãy di chuyển phần tử thật v�
 
 Dùng Bun: `bun install`, sau đó chạy `bun run check`, `bun run lint`, `bun test` và `bun run build`. Kết quả build nằm trong `dist/`. Cập nhật tài liệu liên quan và `TASKS.md` khi có thay đổi đáng kể. Kiểm tra message tại các ranh giới runtime và dùng TypeScript strict, không dùng `any`.
 
+Trước khi hoàn tất mọi thay đổi, phải rà lại `git diff` để xác nhận các logic mới hoặc logic đã sửa đều có comment tiếng Việt cần thiết theo mục **Comment trong code**; không xem việc test/build thành công là thay thế cho bước rà comment này.
+
 ## Comment trong code
 
 Khi tạo hoặc thay đổi code, thêm comment ngắn gọn bằng tiếng Việt cho quy tắc nghiệp vụ, bất biến, vòng đời/dọn dẹp, ranh giới bảo mật, thuật toán không hiển nhiên và đánh đổi quan trọng. Giải thích vì sao code tồn tại hoặc điều gì phải luôn đúng; không mô tả cú pháp hiển nhiên, phép gán, import hay từng dòng. Cập nhật comment khi hành vi thay đổi và xóa comment đã lỗi thời.
