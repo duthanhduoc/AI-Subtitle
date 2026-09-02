@@ -1,10 +1,12 @@
 <script lang="ts">
 	import type { Candidate, HlsUrl, Message, PlayerCommand, PlayerMessage, Reply } from '../shared/messages';
-	import { findMarkedVideoHlsUrls, firstHlsVariant, parseHlsDuration, selectPrimaryHls } from '../shared/hls';
+	import { findMarkedVideoHlsUrls, firstHlsVariant, formatHlsResolutions, parseHlsDuration, selectPrimaryHls } from '../shared/hls';
 	import { formatTime } from '../shared/time';
 
 	type HlsMetadata = { resolution: string; duration: string; fetchedAt: number };
+	type DirectCandidate = Candidate & { source: string };
 	const HLS_METADATA_KEY = 'hlsMetadata';
+	const PLAYBACK_REFERRER_RULE_ID = 2001;
 
 	const isDirectMediaSource = (source?: string): source is string => {
 		if (!source) return false;
@@ -16,10 +18,8 @@
 		}
 	};
 
-	// State của popup là tạm thời. Track đã import cần tồn tại qua lần mở lại PiP
-	// được sở hữu bởi page session của content script.
+	// State của popup chỉ tồn tại trong lần mở hiện tại; metadata HLS đắt hơn được cache riêng.
 	let candidates = $state<Candidate[]>([]);
-	let selected = $state('');
 	let status = $state('Scanning this tab…');
 	let busy = $state(false);
 	let hlsUrls = $state<HlsUrl[]>([]);
@@ -27,12 +27,10 @@
 	let resolutions = $state<Record<string, string>>({});
 	let durations = $state<Record<string, string>>({});
 	let resolutionScan = 0;
-	let playerTabId: number | undefined;
-	let sourceTabId: number | undefined;
 	let primaryHlsUrls = $derived(selectPrimaryHls(hlsUrls));
-	const candidateKey = (candidate: Candidate) => `${candidate.frameId}:${candidate.id}`;
-	let selectedCandidate = $derived(candidates.find((candidate) => candidateKey(candidate) === selected));
-	let canPlaySelected = $derived(isDirectMediaSource(selectedCandidate?.source));
+	const isDirectCandidate = (candidate: Candidate): candidate is DirectCandidate => isDirectMediaSource(candidate.source);
+	// Nhiều video element trỏ cùng URL vẫn chỉ là một nguồn MP4 trong danh sách.
+	let mp4Sources = $derived.by(() => [...new Map(candidates.filter(isDirectCandidate).map((candidate) => [candidate.source, candidate])).values()]);
 
 	async function activeTab(): Promise<chrome.tabs.Tab> {
 		const [tab] = await chrome.tabs.query({
@@ -148,35 +146,28 @@
 		const playerMessage: PlayerMessage = { ...message, tabId };
 		return chrome.runtime.sendMessage(playerMessage) as Promise<Reply<T>>;
 	}
-	// Candidate có điểm cao nhất là mặc định, nhưng hiển thị mọi video dùng được khi
-	// trang có nhiều hơn một player thật.
+	// Candidate có điểm cao nhất được dùng để gắn HLS; mọi URL MP4 duy nhất vẫn được hiển thị.
 	async function scan() {
 		busy = true;
 		status = 'Scanning this tab…';
 		try {
 			const tab = await activeTab();
 			const tabId = tab.id!;
-			sourceTabId = tabId;
-			playerTabId = undefined;
 			if (tab.url?.startsWith(chrome.runtime.getURL('player.html'))) {
-				playerTabId = tabId;
 				const reply = await askPlayer<Candidate[]>({ type: 'GET_CANDIDATES' }, tabId);
 				if (!reply.ok) throw new Error(reply.error);
 				candidates = reply.value;
-				selected = candidates[0] ? candidateKey(candidates[0]) : '';
 				await scanHls(tabId, candidates[0]);
 				status = candidates.length ? '' : 'The player video is not ready. Rescan and try again.';
 				return;
 			}
 			if (tab.url?.startsWith(chrome.runtime.getURL(''))) {
 				candidates = [];
-				selected = '';
 				await scanHls(tabId);
 				status = hlsUrls.length ? '' : 'No HLS stream found in this extension page.';
 				return;
 			}
 			candidates = await candidatesInTab(tabId);
-			selected = candidates[0] ? candidateKey(candidates[0]) : '';
 			await scanHls(tabId, candidates[0]);
 			status = candidates.length || hlsUrls.length ? '' : 'No usable HTML5 video or HLS stream found on this page.';
 		} catch (error) {
@@ -185,34 +176,34 @@
 			busy = false;
 		}
 	}
-	async function chooseVideo(event: Event) {
-		selected = (event.currentTarget as HTMLSelectElement).value;
-		if (!sourceTabId) return;
-		busy = true;
-		try {
-			await scanHls(sourceTabId, selectedCandidate);
-			status = '';
-		} catch (error) {
-			status = error instanceof Error ? error.message : 'Could not scan this video.';
-		} finally {
-			busy = false;
-		}
-	}
-	async function playHls(entry: HlsUrl) {
+	async function playSource(source: string) {
 		const currentTab = await activeTab();
-		const url = `${chrome.runtime.getURL('player.html')}?src=${encodeURIComponent(entry.url)}`;
-		void chrome.tabs.create({
-			url,
-			index: currentTab.index + 1
-		});
-	}
-	async function playSelected() {
-		const source = selectedCandidate?.source;
-		if (!isDirectMediaSource(source)) {
-			status = 'The selected video has no direct media URL.';
+		if (!currentTab.url || !/^https?:\/\//i.test(currentTab.url)) {
+			status = 'The current page cannot be used as a media referrer.';
 			return;
 		}
-		const currentTab = await activeTab();
+		const mediaHost = new URL(source).hostname;
+		await chrome.declarativeNetRequest.updateDynamicRules({
+			removeRuleIds: [PLAYBACK_REFERRER_RULE_ID],
+			addRules: [
+				{
+					id: PLAYBACK_REFERRER_RULE_ID,
+					priority: 10,
+					action: {
+						type: chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS,
+						requestHeaders: [{ header: 'Referer', operation: chrome.declarativeNetRequest.HeaderOperation.SET, value: currentTab.url }]
+					},
+					condition: {
+						urlFilter: `||${mediaHost}/`,
+						resourceTypes: [
+							chrome.declarativeNetRequest.ResourceType.MEDIA,
+							chrome.declarativeNetRequest.ResourceType.XMLHTTPREQUEST,
+							chrome.declarativeNetRequest.ResourceType.OTHER
+						]
+					}
+				}
+			]
+		});
 		const url = `${chrome.runtime.getURL('player.html')}?src=${encodeURIComponent(source)}`;
 		void chrome.tabs.create({
 			url,
@@ -220,108 +211,101 @@
 		});
 	}
 
-	async function copyHls(url: string) {
+	async function copyUrl(url: string) {
 		try {
 			await navigator.clipboard.writeText(url);
 			copiedUrl = url;
 			setTimeout(() => {
 				if (copiedUrl === url) copiedUrl = '';
-			}, 1500);
+			}, 2000);
 		} catch {
-			status = 'Could not copy the HLS URL.';
+			status = 'Could not copy the media URL.';
 		}
 	}
 
-	async function open() {
-		if (!selected) return;
-		busy = true;
-		try {
-			if (!selectedCandidate) return;
-			const message: Message = { type: 'OPEN_PIP', id: selectedCandidate.id };
-			const reply = playerTabId ? await askPlayer<null>(message, playerTabId) : await ask<null>(message, sourceTabId, selectedCandidate.frameId);
-			if (!reply.ok) throw new Error(reply.error);
-			status = 'Picture-in-Picture opened.';
-		} catch (error) {
-			status = error instanceof Error ? error.message : 'Could not open Picture-in-Picture.';
-		} finally {
-			busy = false;
-		}
-	}
 	// Quét ngay vì việc mở popup chính là thao tác người dùng yêu cầu phát hiện.
 	scan();
 </script>
 
+{#snippet sourceRow(url: string, duration: string, resolution: string)}
+	<article class="source">
+		<div class="source-metadata">{duration} <span aria-hidden="true">|</span> {resolution}</div>
+		<div class="source-actions">
+			<div class="source-url" title={url}>
+				<code aria-label={url}>
+					{#if url.length > 40}
+						<span class="url-start">{url.slice(0, 20)}</span>
+						<span class="url-ellipsis" aria-hidden="true">...</span>
+						<span class="url-end">{url.slice(-20)}</span>
+					{:else}
+						{url}
+					{/if}
+				</code>
+				<button
+					class="copy-source"
+					type="button"
+					title={copiedUrl === url ? 'Copied' : 'Copy URL'}
+					aria-label={copiedUrl === url ? 'Copied' : 'Copy full URL'}
+					aria-live="polite"
+					onclick={() => copyUrl(url)}
+				>
+					{#if copiedUrl === url}
+						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg>
+					{:else}
+						<svg viewBox="0 0 24 24" aria-hidden="true"
+							><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3" /></svg
+						>
+					{/if}
+				</button>
+			</div>
+			<button class="play-source" onclick={() => playSource(url)} disabled={busy}>Play</button>
+		</div>
+	</article>
+{/snippet}
+
 <main>
-	<h1>Custom PiP</h1>
-	{#if candidates.length > 1}
-		<label>
-			Choose video
-			<select value={selected} onchange={chooseVideo}>
-				{#each candidates as candidate (candidateKey(candidate))}
-					<option value={candidateKey(candidate)}>
-						{candidate.width}×{candidate.height} · {candidate.playing ? 'Playing' : 'Paused'} · {formatTime(candidate.duration)}
-					</option>
-				{/each}
-			</select>
-		</label>
-	{:else if candidates[0]}
-		{@const candidate = candidates[0]}
-		<p>
-			{candidate.width}×{candidate.height} · {candidate.playing ? 'Playing' : 'Paused'} · {formatTime(candidate.duration)}
-		</p>
-	{/if}
-	<div class="primary-actions">
-		<button class="primary" onclick={open} disabled={!selected || busy}>Picture-in-Picture</button>
-		<button class="play-video" onclick={playSelected} disabled={!canPlaySelected || busy}>Play</button>
-	</div>
-	<button onclick={scan} disabled={busy}>Rescan</button>
-	{#if hlsUrls.length}
-		<section class="hls">
-			<h2>Detected HLS streams</h2>
+	<h1>Available sources</h1>
+	<nav class="toolbar" aria-label="Popup actions">
+		<button onclick={scan} disabled={busy}>Rescan</button>
+		<a class="settings" href="options.html" target="_blank">Settings</a>
+	</nav>
+
+	{#if primaryHlsUrls.length}
+		<section>
+			<h2>HLS</h2>
 			{#each primaryHlsUrls as entry (entry.url)}
-				<div class="stream">
-					<div class="stream-resolution">
-						{resolutions[entry.url] ?? 'Loading…'} · {durations[entry.url] ?? 'Loading…'}
-					</div>
-					<code title={entry.url} aria-label={entry.url}>
-						{#if entry.url.length > 48}
-							<span class="url-start">{entry.url.slice(0, -24)}</span>
-							<span class="url-ellipsis" aria-hidden="true">...</span>
-							<span class="url-end">{entry.url.slice(-24)}</span>
-						{:else}
-							{entry.url}
-						{/if}
-					</code>
-					<div class="stream-actions">
-						<button class="play-hls" onclick={() => playHls(entry)}>Play</button>
-						<button class="copy-hls" onclick={() => copyHls(entry.url)} aria-label="Copy HLS URL">{copiedUrl === entry.url ? 'Copied' : 'Copy'}</button>
-					</div>
-				</div>
+				{@render sourceRow(entry.url, durations[entry.url] ?? 'Loading…', formatHlsResolutions(resolutions[entry.url] ?? 'Loading…'))}
 			{/each}
 		</section>
 	{/if}
+
+	{#if mp4Sources.length}
+		<section>
+			<h2>MP4</h2>
+			{#each mp4Sources as entry (entry.source)}
+				{@render sourceRow(
+					entry.source,
+					Number.isFinite(entry.duration) ? formatTime(entry.duration) : 'Unknown',
+					entry.videoHeight ? `${entry.videoHeight}p` : 'Unknown'
+				)}
+			{/each}
+		</section>
+	{/if}
+
 	{#if status}<p class="status">{status}</p>{/if}
-	<a href="options.html" target="_blank">Settings</a>
 </main>
 
 <style>
 	main {
-		width: 320px;
+		box-sizing: border-box;
+		width: 380px;
 		padding: 16px;
 		font: 14px system-ui;
 		color: #0f172a;
 	}
 	h1 {
-		margin: 0 0 14px;
+		margin: 0 0 12px;
 		font-size: 20px;
-	}
-	label {
-		display: grid;
-		gap: 6px;
-		margin: 14px 0;
-	}
-	select {
-		max-width: 100%;
 	}
 	button {
 		padding: 8px;
@@ -331,84 +315,109 @@
 		color: #0f172a;
 		cursor: pointer;
 	}
-	.primary {
-		background: #2563eb;
-		color: white;
+	button:disabled {
+		cursor: default;
+		opacity: 0.6;
 	}
-	.primary-actions {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 6px;
+	.toolbar {
+		display: flex;
+		gap: 8px;
 	}
-	.primary-actions button {
-		min-width: 0;
+	.settings {
+		padding: 8px;
+		border-radius: 6px;
+		background: #e2e8f0;
+		color: #0f172a;
+		text-decoration: none;
 	}
-	.play-video {
-		background: #16a34a;
-		color: white;
-	}
-	.status {
-		color: #475569;
-	}
-	.hls {
+	section {
 		margin-top: 16px;
-		padding-top: 12px;
-		border-top: 1px solid #cbd5e1;
 	}
 	h2 {
-		margin: 0 0 8px;
-		font-size: 14px;
+		margin: 0;
+		font-size: 16px;
 	}
-	.stream {
+	.source {
 		display: grid;
-		gap: 6px;
-		margin-top: 10px;
+		gap: 7px;
+		padding: 12px 0;
+	}
+	.source + .source {
+		border-top: 1px solid #cbd5e1;
+	}
+	.source-metadata {
+		font-weight: 650;
+	}
+	.source-actions {
+		display: flex;
+		gap: 8px;
+	}
+	.source-url {
+		position: relative;
+		display: flex;
+		flex: 1;
+		align-items: center;
+		min-width: 0;
+		border-radius: 6px;
+		background: #f1f5f9;
 	}
 	code {
 		display: flex;
+		flex: 1;
 		align-items: center;
+		min-width: 0;
 		overflow: hidden;
-		padding: 6px;
-		border-radius: 4px;
-		background: #f1f5f9;
+		padding: 7px;
 		font-size: 10px;
-		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 	.url-start {
 		min-width: 0;
 		overflow: hidden;
 	}
-	.url-ellipsis {
-		flex: none;
-		margin: 0 3px;
-		padding: 0 4px 2px;
-		border-radius: 3px;
-		background: #cbd5e1;
-		color: #334155;
-		font-weight: 800;
-	}
+	.url-ellipsis,
 	.url-end {
 		flex: none;
 	}
-	.stream-resolution {
-		color: #0f766e;
-		font-weight: 700;
+	.url-ellipsis {
+		margin: 0 3px;
+		font-size: 1.5em;
+		font-weight: 800;
+		letter-spacing: 2px;
 	}
-	.play-hls {
+	.copy-source {
+		position: absolute;
+		top: 50%;
+		right: 3px;
+		display: grid;
+		place-items: center;
+		padding: 5px;
+		background: #cbd5e1;
+		opacity: 0;
+		transform: translateY(-50%);
+		transition: opacity 120ms ease;
+	}
+	.source-url:hover .copy-source,
+	.source-url:focus-within .copy-source {
+		opacity: 1;
+	}
+	.copy-source svg {
+		width: 16px;
+		height: 16px;
+		fill: none;
+		stroke: currentColor;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		stroke-width: 2;
+	}
+	.play-source {
+		flex: none;
+		min-width: 64px;
 		background: #16a34a;
 		color: white;
 	}
-	.stream-actions {
-		display: flex;
-		gap: 6px;
-	}
-	.stream-actions button {
-		flex: 1;
-	}
-	a {
-		display: block;
-		margin-top: 14px;
-		color: #2563eb;
+	.status {
+		margin-bottom: 0;
+		color: #475569;
 	}
 </style>

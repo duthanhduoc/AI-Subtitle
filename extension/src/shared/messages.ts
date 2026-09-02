@@ -7,12 +7,14 @@ export type Candidate = {
 	source?: string;
 	width: number;
 	height: number;
+	videoWidth: number;
+	videoHeight: number;
 	duration: number;
 	playing: boolean;
 	score: number;
 };
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
-export type PlayerCommand = { type: 'GET_CANDIDATES' } | { type: 'OPEN_PIP'; id: string };
+export type PlayerCommand = { type: 'GET_CANDIDATES' };
 export type Message = PlayerCommand | { type: 'MARK_HLS_TARGET'; id: string; marker: string };
 export type PlayerMessage = PlayerCommand & { tabId: number };
 
@@ -25,7 +27,6 @@ export function isMessage(value: unknown): value is Message {
 	const message = value as { type?: unknown };
 	return (
 		message.type === 'GET_CANDIDATES' ||
-		(message.type === 'OPEN_PIP' && typeof (value as { id?: unknown }).id === 'string') ||
 		(message.type === 'MARK_HLS_TARGET' && typeof (value as { id?: unknown }).id === 'string' && typeof (value as { marker?: unknown }).marker === 'string')
 	);
 }

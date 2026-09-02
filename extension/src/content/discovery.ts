@@ -16,8 +16,7 @@ function videos(root: ParentNode = document): HTMLVideoElement[] {
 	return result;
 }
 
-// Chỉ thu thập tín hiệu cần cho việc chấm điểm; popup không nhận DOM trang hoặc
-// chi tiết source media.
+// Chỉ thu thập tín hiệu cần cho việc chấm điểm và nhãn nguồn; popup không nhận DOM trang.
 function metrics(video: HTMLVideoElement): VideoMetrics {
 	const rect = video.getBoundingClientRect();
 	const style = getComputedStyle(video);
@@ -47,6 +46,8 @@ export function discover(): Candidate[] {
 				source: mediaSource(element),
 				width: v.width,
 				height: v.height,
+				videoWidth: element.videoWidth,
+				videoHeight: element.videoHeight,
 				duration: v.duration,
 				playing: v.playing,
 				score: scoreVideo(v)

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { findMarkedVideoHlsUrls, firstHlsVariant, parseHlsDuration, preferTopFrameHls, selectPrimaryHls } from '../shared/hls';
+import { findMarkedVideoHlsUrls, firstHlsVariant, formatHlsResolutions, parseHlsDuration, preferTopFrameHls, selectPrimaryHls } from '../shared/hls';
 
 test('parses VOD and live HLS durations', () => {
 	const vod = '#EXTINF:6,\n1.ts\n#EXTINF:4.5,\n2.ts\n#EXT-X-ENDLIST';
@@ -16,6 +16,11 @@ test('shows every unique HLS playlist', () => {
 	const rendition = entry('https://cdn.example/rendition.m3u8?token=1');
 
 	expect(selectPrimaryHls([rendition, master, rendition])).toEqual([rendition, master]);
+});
+
+test('formats HLS resolutions as unique height labels', () => {
+	expect(formatHlsResolutions('256×144, 426x240, 1920×1080, 1920×1080')).toBe('144p, 240p, 1080p');
+	expect(formatHlsResolutions('Unknown')).toBe('Unknown');
 });
 
 test('prefers page HLS over unrelated iframe streams', () => {

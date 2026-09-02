@@ -3,18 +3,16 @@ import '@videojs/html/video/player';
 import '@videojs/html/video/skin';
 import '@videojs/html/video/skin.css';
 import './player.css';
-import { discover, getVideo } from '../content/discovery';
+import { discover } from '../content/discovery';
 import { openPlayer } from '../pip/player';
 import { isPlayerMessage, type Reply } from '../shared/messages';
 import { srtToVtt } from '../subtitles/srt';
-import type { SubtitleState } from '../subtitles/types';
-import { PictureInPicture2, type IconNode } from 'lucide';
+import { PictureInPicture2, Upload, type IconNode } from 'lucide';
 import { ImageFragmentLoader } from './image-fragment-loader';
 
 const params = new URLSearchParams(location.search);
 const source = params.get('src');
 const root = document.getElementById('app')!;
-const subtitleState: SubtitleState = { tracks: [] };
 let hlsMedia: HTMLElementTagNameMap['hlsjs-video'] | undefined;
 let subtitleTrack: HTMLTrackElement | undefined;
 let subtitleUrl: string | undefined;
@@ -58,7 +56,7 @@ const createResolutionBadge = (media: HTMLElementTagNameMap['hlsjs-video']): HTM
 	const update = () => {
 		const { videoHeight } = media;
 		const hasQualityOptions = (media.engine?.levels.length ?? 0) > 1;
-		badge.textContent = videoHeight ? `${videoHeight}p${hasQualityOptions ? ' ▾' : ''}` : '';
+		badge.textContent = `${videoHeight}p`;
 		badge.setAttribute('aria-label', hasQualityOptions ? 'Video resolution; quality selection available' : 'Video resolution');
 		badge.title = hasQualityOptions ? 'Multiple video qualities available in Settings' : 'Single video quality';
 		badge.dataset.quality = hasQualityOptions ? 'multiple' : 'single';
@@ -82,9 +80,13 @@ const createSubtitleTools = (media: HTMLElementTagNameMap['hlsjs-video']): HTMLE
 
 	const button = document.createElement('button');
 	button.type = 'button';
-	button.className = 'player-subtitle-upload media-button media-button--subtle media-button--icon';
+	button.className = 'player-subtitle-upload media-button media-button--subtle';
 	button.id = 'extension-subtitle-upload-trigger';
-	button.textContent = 'CC+';
+	const icon = lucide(document, Upload);
+	icon.classList.add('media-icon');
+	icon.setAttribute('aria-hidden', 'true');
+	// Icon mô tả thao tác upload, còn nhãn CC cho biết nút này dành cho phụ đề.
+	button.append(icon, document.createTextNode('CC'));
 	button.setAttribute('aria-label', 'Upload SRT or VTT subtitle');
 	button.setAttribute('commandfor', 'extension-subtitle-upload-tooltip');
 	button.addEventListener('click', () => input.click());
@@ -146,12 +148,9 @@ const createCustomPipControls = (): DocumentFragment => {
 	button.addEventListener('click', () => {
 		const media = hlsMedia;
 		if (!media) return;
-		void chrome.storage.local
-			.get({ fontSize: 'medium', background: 'medium', controlsDelay: 2200 })
-			.then((settings) => openPlayer(media, settings, subtitleState, media))
-			.catch((error: unknown) => {
-				tooltip.textContent = error instanceof Error ? error.message : 'Could not open extension Picture-in-Picture.';
-			});
+		void openPlayer(media, media).catch((error: unknown) => {
+			tooltip.textContent = error instanceof Error ? error.message : 'Could not open extension Picture-in-Picture.';
+		});
 	});
 	controls.append(button, tooltip);
 	return controls;
@@ -166,6 +165,17 @@ const replaceNativePip = (skin: HTMLElement): void => {
 	// trạng thái khả dụng được tính lại sau khi Document PiP khôi phục media.
 	hideStyle.textContent = `
 		media-pip-button { display: none !important; }
+		.player-subtitle-upload {
+			width: auto;
+			min-width: 0;
+			gap: 0.35rem;
+			padding: 0 0.5rem;
+		}
+		.player-subtitle-upload .media-icon {
+			width: 1rem;
+			height: 1rem;
+			flex-shrink: 0;
+		}
 		.player-resolution-badge {
 			padding: 0 0.55rem;
 		}
@@ -181,30 +191,7 @@ void chrome.tabs.getCurrent().then((tab) => {
 	if (!tab?.id) return;
 	chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse: (reply: Reply<unknown>) => void) => {
 		if (!isPlayerMessage(message) || message.tabId !== tab.id) return;
-		if (message.type === 'GET_CANDIDATES') {
-			sendResponse({ ok: true, value: discover() });
-			return;
-		}
-		const nativeVideo = getVideo(message.id);
-		const media = hlsMedia;
-		if (!nativeVideo || !media) {
-			sendResponse({
-				ok: false,
-				error: 'The player video is not ready. Rescan and try again.'
-			});
-			return;
-		}
-		void chrome.storage.local
-			.get({ fontSize: 'medium', background: 'medium', controlsDelay: 2200 })
-			.then((settings) => openPlayer(media, settings, subtitleState, nativeVideo))
-			.then(() => sendResponse({ ok: true, value: null }))
-			.catch((error: unknown) =>
-				sendResponse({
-					ok: false,
-					error: error instanceof Error ? error.message : 'Could not open Picture-in-Picture.'
-				})
-			);
-		return true;
+		sendResponse({ ok: true, value: discover() });
 	});
 });
 

@@ -21,9 +21,7 @@ bun run build
 
 Mở `chrome://extensions`, bật Developer mode, chọn **Load unpacked** và chọn `dist/`.
 
-Dùng nút extension trên tab có video HTML5, chọn video nếu cần rồi mở Picture-in-Picture. Sau khi PiP mở, dùng Settings để thêm file `.srt`. Offset phụ đề dương nghĩa là cue được chọn tại `video.currentTime + offset`, vì vậy phụ đề sẽ xuất hiện sớm hơn.
-
-Với MP4 có URL trực tiếp, dùng nút **Play**. Với HLS, dùng **Play** trong phần **Detected HLS streams**. Cả hai mở player page của extension; nút **CC+** trong thanh điều khiển nhận file `.srt` hoặc `.vtt`.
+Với MP4 có URL trực tiếp, dùng nút **Play** trong popup. Với HLS, dùng **Play** trong phần **Detected HLS streams**. Cả hai mở player page của extension; nút phụ đề trong thanh điều khiển nhận file `.srt` hoặc `.vtt`, còn icon Custom PiP mở cửa sổ Picture-in-Picture.
 
 Phím tắt trong PiP: Space play/pause; Left/Right ±5s; J/L ±10s; M tắt tiếng; Up/Down âm lượng; `[`/`]` offset phụ đề.
 

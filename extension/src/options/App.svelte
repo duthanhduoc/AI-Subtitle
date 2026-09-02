@@ -1,15 +1,11 @@
 <script lang="ts">
 	type Settings = {
-		fontSize: 'small' | 'medium' | 'large' | 'xlarge';
-		background: 'off' | 'low' | 'medium' | 'high';
 		// Được lưu cho tính năng tự ẩn theo thời gian dự kiến; controls hiện dùng CSS hover/focus.
 		controlsDelay: number;
 	};
 	// Giá trị mặc định cũng được truyền vào storage.get để bản cài cũ tự nhận setting
 	// mới mà không cần bước chuyển đổi dữ liệu.
 	const defaults: Settings = {
-		fontSize: 'medium',
-		background: 'medium',
 		controlsDelay: 2200
 	};
 	let settings = $state<Settings>(defaults);
@@ -28,24 +24,6 @@
 
 <main>
 	<h1>Custom PiP settings</h1>
-	<label>
-		Subtitle font size
-		<select bind:value={settings.fontSize}>
-			<option value="small">Small</option>
-			<option value="medium">Medium</option>
-			<option value="large">Large</option>
-			<option value="xlarge">Extra Large</option>
-		</select>
-	</label>
-	<label>
-		Subtitle background
-		<select bind:value={settings.background}>
-			<option value="off">Off</option>
-			<option value="low">Low</option>
-			<option value="medium">Medium</option>
-			<option value="high">High</option>
-		</select>
-	</label>
 	<label>
 		Controls auto-hide (ms)
 		<input type="number" min="500" max="10000" step="100" bind:value={settings.controlsDelay} />
@@ -66,7 +44,6 @@
 		gap: 7px;
 		margin: 18px 0;
 	}
-	select,
 	input {
 		padding: 8px;
 	}

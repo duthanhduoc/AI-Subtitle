@@ -1,10 +1,8 @@
 <!--
   Shell PiP tĩnh, đáng tin cậy. player.ts clone shell này vào tài liệu PiP cô lập,
-  di chuyển video thật của trang vào #player và ghi text phụ đề bằng textContent.
+  rồi di chuyển video thật của trang vào #player để native VTT tiếp tục hiển thị.
 -->
 <main id="player">
-	<!-- Tách khỏi video để phụ đề local hoạt động mà không sửa media track. -->
-	<div class="subs" aria-live="polite"></div>
 	<!-- Controls có giao diện native thao tác trên video element gốc của trang. -->
 	<div class="bar">
 		<input class="progress" aria-label="Seek" type="range" min="0" value="0" step="0.01" />
@@ -21,36 +19,6 @@
 				<button class="settings icon" aria-label="Player settings" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings-menu"></button>
 				<div id="settings-menu" class="settings-menu" role="dialog" aria-label="Player settings">
 					<div class="menu-page menu-main">
-						<div class="menu-section">
-							<div class="menu-heading">
-								<span class="menu-icon style-icon" aria-hidden="true"></span>
-								<strong>Subtitle style</strong>
-							</div>
-							<div class="preset" role="group" aria-label="Subtitle style">
-								<button data-preset="netflix">Netflix</button>
-								<button data-preset="cinema">Cinema</button>
-								<button data-preset="minimal">Minimal</button>
-								<button data-preset="contrast">High Contrast</button>
-							</div>
-						</div>
-						<button class="track-picker menu-row" aria-haspopup="listbox">
-							<span class="menu-heading">
-								<span class="menu-icon track-icon" aria-hidden="true"></span>
-								<strong>Subtitle tracks</strong>
-							</span>
-							<span class="menu-control">
-								<span class="menu-value track-value">Off</span>
-								<span class="menu-chevron" aria-hidden="true"></span>
-							</span>
-						</button>
-						<button class="add-srt menu-row">
-							<span class="menu-heading">
-								<span class="menu-icon add-icon" aria-hidden="true"></span>
-								<strong>Add SRT files</strong>
-							</span>
-							<span class="menu-chevron" aria-hidden="true"></span>
-						</button>
-						<input class="srt-file" type="file" accept=".srt,text/plain" multiple hidden />
 						<button class="speed-picker menu-row" aria-haspopup="listbox">
 							<span class="menu-heading">
 								<span class="menu-icon speed-icon" aria-hidden="true"></span>
@@ -61,13 +29,6 @@
 								<span class="menu-chevron" aria-hidden="true"></span>
 							</span>
 						</button>
-					</div>
-					<div class="menu-page choice-page track-page" hidden>
-						<button class="choice-back track-back">
-							<span class="back-icon" aria-hidden="true"></span>
-							<strong>Subtitle tracks</strong>
-						</button>
-						<div class="choice-list track-options" role="listbox" aria-label="Subtitle track"></div>
 					</div>
 					<div class="menu-page choice-page speed-page" hidden>
 						<button class="choice-back speed-back">

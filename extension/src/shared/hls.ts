@@ -47,6 +47,12 @@ export function selectPrimaryHls(entries: HlsUrl[]) {
 	return [...new Map(entries.map((entry) => [entry.url, entry])).values()];
 }
 
+export function formatHlsResolutions(value: string) {
+	// Manifest dùng WIDTH×HEIGHT, còn popup chỉ cần nhãn chiều cao quen thuộc như 1080p.
+	const heights = [...value.matchAll(/\d+\s*[×x]\s*(\d+)/gi)].map(([, height]) => `${height}p`);
+	return heights.length ? [...new Set(heights)].join(', ') : value;
+}
+
 export function parseHlsDuration(manifest: string): number | 'Live' | undefined {
 	const values = [...manifest.matchAll(/#EXTINF:\s*([\d.]+)/gi)].map(([, value]) => Number(value));
 	if (!values.length || values.some((value) => !Number.isFinite(value))) return undefined;
