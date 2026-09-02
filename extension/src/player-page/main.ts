@@ -7,7 +7,8 @@ import { discover } from '../content/discovery';
 import { openPlayer } from '../pip/player';
 import { isPlayerMessage, type Reply } from '../shared/messages';
 import { srtToVtt } from '../subtitles/srt';
-import { PictureInPicture2, Upload, type IconNode } from 'lucide';
+import { applyCaptionStyle, type CaptionStyle } from '../subtitles/vtt';
+import { Captions, ChevronRight, PictureInPicture2, Upload, type IconNode } from 'lucide';
 import { ImageFragmentLoader } from './image-fragment-loader';
 
 const params = new URLSearchParams(location.search);
@@ -16,6 +17,9 @@ const root = document.getElementById('app')!;
 let hlsMedia: HTMLElementTagNameMap['hlsjs-video'] | undefined;
 let subtitleTrack: HTMLTrackElement | undefined;
 let subtitleUrl: string | undefined;
+// Giữ VTT gốc để Default có thể bỏ riêng stylesheet do extension thêm vào.
+let subtitleSource: { name: string; vtt: string } | undefined;
+let captionSettings: CaptionSettings | undefined;
 const svgNamespace = 'http://www.w3.org/2000/svg';
 
 const lucide = (document: Document, [tag, attributes, children]: IconNode): SVGElement => {
@@ -38,6 +42,22 @@ const clearSubtitleTrack = () => {
 	subtitleTrack = undefined;
 	if (subtitleUrl) URL.revokeObjectURL(subtitleUrl);
 	subtitleUrl = undefined;
+};
+
+const replaceSubtitleTrack = (media: HTMLElementTagNameMap['hlsjs-video'], vtt: string, name: string): void => {
+	// Native caption không có API sửa stylesheet đang chạy; thay Blob track là cách để
+	// Video.js và Document PiP cùng nhận một VTT đã cập nhật.
+	const nextUrl = URL.createObjectURL(new Blob([vtt], { type: 'text/vtt' }));
+	const nextTrack = document.createElement('track');
+	nextTrack.kind = 'subtitles';
+	nextTrack.src = nextUrl;
+	nextTrack.srclang = 'vi';
+	nextTrack.label = name;
+	nextTrack.default = true;
+	clearSubtitleTrack();
+	subtitleUrl = nextUrl;
+	subtitleTrack = nextTrack;
+	media.append(nextTrack);
 };
 
 const createTooltip = (id: string, label: string): HTMLElement => {
@@ -67,6 +87,195 @@ const createResolutionBadge = (media: HTMLElementTagNameMap['hlsjs-video']): HTM
 	media.addEventListener('durationchange', update);
 	update();
 	return badge;
+};
+
+type CaptionSettings = { setAvailable: () => void; resetToDefaults: () => void };
+
+const createCaptionPreferencesDialog = (): HTMLDialogElement => {
+	const dialog = document.createElement('dialog');
+	dialog.className = 'extension-caption-help-dialog';
+	const title = document.createElement('h2');
+	title.textContent = 'Caption background help';
+	const text = document.createElement('p');
+	text.textContent = 'Device caption preferences can override subtitle backgrounds.';
+	const steps = document.createElement('p');
+	steps.append('Open ', Object.assign(document.createElement('strong'), { textContent: 'Caption Preferences' }), ', then choose ', Object.assign(document.createElement('strong'), { textContent: 'Outline Text' }), '.');
+	const actions = document.createElement('div');
+	actions.className = 'extension-caption-help-actions';
+	const close = document.createElement('button');
+	close.type = 'button';
+	close.textContent = 'Got it';
+	close.addEventListener('click', () => dialog.close());
+	const open = document.createElement('button');
+	open.type = 'button';
+	open.className = 'extension-caption-help-open';
+	open.textContent = 'Open Caption Preferences';
+	open.addEventListener('click', () => {
+		// Trang Accessibility của Chrome có liên kết mở Caption Preferences của macOS.
+		void chrome.tabs.create({ url: 'chrome://settings/accessibility' });
+	});
+	actions.append(close, open);
+	dialog.append(title, text, steps, actions);
+	document.body.append(dialog);
+	return dialog;
+};
+
+const createCaptionSettings = (media: HTMLElementTagNameMap['hlsjs-video'], settingsMenu: HTMLElement): CaptionSettings => {
+	// Settings menu của Video.js hỗ trợ panel cùng cấp qua commandfor; dùng đúng contract
+	// này để keyboard, focus và animation submenu giữ nguyên như control có sẵn.
+	// Video.js gán id runtime cho menu gốc, nên nhận diện bằng class ổn định thay vì id.
+	const main = settingsMenu.querySelector<HTMLElement>('media-menu-content.media-menu__content');
+	if (!main) return { setAvailable: () => undefined, resetToDefaults: () => undefined };
+	const item = document.createElement('media-menu-item');
+	item.className = 'media-menu__item media-menu__item--submenu';
+	item.setAttribute('commandfor', 'extension-caption-settings-menu');
+	item.hidden = true;
+	const icon = lucide(document, Captions);
+	icon.classList.add('media-icon');
+	icon.setAttribute('aria-hidden', 'true');
+	const label = document.createElement('span');
+	label.textContent = 'Subtitle options';
+	const hint = document.createElement('span');
+	hint.className = 'media-menu__hint';
+	const chevron = lucide(document, ChevronRight);
+	chevron.classList.add('media-icon', 'media-menu__chevron');
+	chevron.setAttribute('aria-hidden', 'true');
+	hint.append(chevron);
+	item.append(icon, label, hint);
+	main.append(item);
+
+	const panel = document.createElement('media-menu-content');
+	panel.id = 'extension-caption-settings-menu';
+	panel.className = 'media-menu__panel';
+	const back = document.createElement('media-menu-item');
+	back.className = 'media-menu__back';
+	const backIcon = lucide(document, ChevronRight);
+	backIcon.classList.add('media-icon', 'media-menu__chevron', 'media-icon--flipped');
+	backIcon.setAttribute('aria-hidden', 'true');
+	back.append(backIcon, document.createTextNode('Subtitle options'));
+	const help = document.createElement('button');
+	help.type = 'button';
+	help.className = 'extension-caption-help';
+	help.textContent = 'Background not applying? Learn how to fix it';
+	const helpDialog = createCaptionPreferencesDialog();
+	help.addEventListener('click', () => helpDialog.showModal());
+	panel.append(back, help, document.createElement('media-menu-separator'));
+	const defaults: CaptionStyle = {
+		fontFamily: 'Arial',
+		color: '#ffffff',
+		fontSize: '100%',
+		background: 'system',
+		backgroundOpacity: 'system'
+	};
+	let style = { ...defaults };
+	let overrides: Partial<CaptionStyle> = { fontSize: defaults.fontSize };
+	const selects: Array<{ key: keyof CaptionStyle; select: HTMLSelectElement }> = [];
+	const apply = () => {
+		if (!subtitleSource) return;
+		// Chỉ ghi option người dùng vừa đổi để không làm lệch layout caption native.
+		replaceSubtitleTrack(media, applyCaptionStyle(subtitleSource.vtt, overrides), subtitleSource.name);
+	};
+	const addChoices = <K extends keyof CaptionStyle>(label: string, key: K, choices: Array<[CaptionStyle[K], string]>) => {
+		const row = document.createElement('div');
+		row.className = 'media-menu__item extension-caption-select-row';
+		const rowLabel = document.createElement('span');
+		rowLabel.textContent = label;
+		const select = document.createElement('select');
+		select.className = 'extension-caption-select';
+		select.id = `extension-caption-${key}`;
+		select.name = `caption-${key}`;
+		select.setAttribute('aria-label', label);
+		for (const [value, name] of choices) {
+			const option = document.createElement('option');
+			option.value = value;
+			option.textContent = name;
+			select.append(option);
+		}
+		select.value = style[key];
+		select.addEventListener('change', () => {
+			const value = select.value as CaptionStyle[K];
+			style = { ...style, [key]: value };
+			overrides = { ...overrides, [key]: value };
+			apply();
+		});
+		selects.push({ key, select });
+		row.addEventListener('click', (event) => {
+			// Cả hàng là vùng chạm để người dùng không phải nhắm chính xác vào select.
+			if (event.target === select) return;
+			// showPicker mở dropdown native từ thao tác người dùng; click() chỉ phát sự kiện.
+			try {
+				select.showPicker();
+			} catch {
+				select.click();
+			}
+		});
+		row.append(rowLabel, select);
+		panel.append(row);
+	};
+	addChoices('Font', 'fontFamily', [
+		['Arial', 'Sans-serif'],
+		['Georgia', 'Serif'],
+		['monospace', 'Monospace']
+	]);
+	addChoices('Text color', 'color', [
+		['#ffffff', 'White'],
+		['#ffeb3b', 'Yellow'],
+		['#00ff00', 'Green'],
+		['#00e5ff', 'Cyan'],
+		['#0000ff', 'Blue'],
+		['#ff00ff', 'Magenta'],
+		['#ff0000', 'Red'],
+		['#000000', 'Black']
+	]);
+	addChoices('Font size', 'fontSize', [
+		['system', 'System default'],
+		['50%', '50%'],
+		// 75% làm Chromium làm tròn line box lệch một pixel trên một số kích thước video.
+		['70%', '75%'],
+		['100%', '100%'],
+		['150%', '150%']
+	]);
+	addChoices('Background', 'background', [
+		['system', 'System default'],
+		['#000000', 'Black'],
+		['#ffffff', 'White'],
+		['#ffeb3b', 'Yellow'],
+		['#00ff00', 'Green'],
+		['#00e5ff', 'Cyan'],
+		['#0000ff', 'Blue'],
+		['#ff00ff', 'Magenta'],
+		['#ff0000', 'Red'],
+		['transparent', 'Transparent']
+	]);
+	addChoices('Background opacity', 'backgroundOpacity', [
+		['system', 'System default'],
+		['0', '0%'],
+		['0.5', '50%'],
+		['0.75', '75%'],
+		['1', '100%']
+	]);
+	const resetToDefaults = () => {
+		if (!subtitleSource) return;
+		// Default giữ background theo hệ thống nhưng luôn neo cỡ chữ 100% cho UI nhất quán.
+		style = { ...defaults };
+		overrides = { fontSize: defaults.fontSize };
+		for (const { key, select } of selects) select.value = style[key];
+		replaceSubtitleTrack(media, applyCaptionStyle(subtitleSource.vtt, overrides), subtitleSource.name);
+	};
+	const reset = document.createElement('media-menu-item');
+	reset.className = 'media-menu__item extension-caption-default';
+	reset.textContent = 'Default';
+	// Menu đóng submenu sau `select`; Default chỉ reset style nên phải giữ người dùng ở panel này.
+	reset.addEventListener('select', (event) => event.preventDefault());
+	reset.addEventListener('click', resetToDefaults);
+	panel.append(document.createElement('media-menu-separator'), reset);
+	settingsMenu.append(panel);
+	return {
+		setAvailable: () => {
+			item.hidden = false;
+		},
+		resetToDefaults
+	};
 };
 
 const createSubtitleTools = (media: HTMLElementTagNameMap['hlsjs-video']): HTMLElement => {
@@ -105,18 +314,11 @@ const createSubtitleTools = (media: HTMLElementTagNameMap['hlsjs-video']): HTMLE
 
 		void subtitleFileToVtt(file)
 			.then((vtt) => {
-				const nextUrl = URL.createObjectURL(new Blob([vtt], { type: 'text/vtt' }));
-				const nextTrack = document.createElement('track');
-				nextTrack.kind = 'subtitles';
-				nextTrack.src = nextUrl;
-				nextTrack.srclang = 'vi';
-				nextTrack.label = file.name;
-				nextTrack.default = true;
-
-				clearSubtitleTrack();
-				subtitleUrl = nextUrl;
-				subtitleTrack = nextTrack;
-				media.append(nextTrack);
+				subtitleSource = { name: file.name, vtt };
+				// Subtitle mới luôn bắt đầu ở 100%, kể cả khi menu settings chưa khởi tạo xong.
+				if (captionSettings) captionSettings.resetToDefaults();
+				else replaceSubtitleTrack(media, applyCaptionStyle(vtt, { fontSize: '100%' }), file.name);
+				captionSettings?.setAvailable();
 				tooltip.textContent = 'Replace subtitle';
 				status.textContent = file.name;
 				status.dataset.error = 'false';
@@ -165,6 +367,8 @@ const replaceNativePip = (skin: HTMLElement): void => {
 	// trạng thái khả dụng được tính lại sau khi Document PiP khôi phục media.
 	hideStyle.textContent = `
 		media-pip-button { display: none !important; }
+		/* Giữ controls nổi trực tiếp trên video, không phủ gradient toàn khung. */
+		media-controls-backdrop { background-image: none !important; }
 		.player-subtitle-upload {
 			width: auto;
 			min-width: 0;
@@ -179,12 +383,72 @@ const replaceNativePip = (skin: HTMLElement): void => {
 		.player-resolution-badge {
 			padding: 0 0.55rem;
 		}
+		.extension-caption-help {
+			align-self: flex-start;
+			padding: 0.2rem 0.7rem 0.4rem;
+			color: rgb(255 255 255 / 68%);
+			background: transparent;
+			border: 0;
+			font: 0.75rem/1.2 system-ui, sans-serif;
+			text-decoration: underline;
+			text-underline-offset: 0.15em;
+			cursor: pointer;
+		}
+		.extension-caption-help:hover,
+		.extension-caption-help:focus-visible {
+			color: white;
+		}
+		.extension-caption-select-row {
+			position: relative;
+			cursor: default;
+		}
+		.extension-caption-select {
+			appearance: none;
+			max-width: 58%;
+			padding: 0 1.25rem 0 0.5rem;
+			border: 0;
+			outline: 0;
+			color: rgb(255 255 255 / 72%);
+			background: transparent;
+			font: inherit;
+			text-align: right;
+			cursor: pointer;
+		}
+		.extension-caption-select-row::after {
+			position: absolute;
+			right: 0.4rem;
+			content: '›';
+			color: rgb(255 255 255 / 72%);
+			font-size: 1.5em;
+			line-height: 1;
+			pointer-events: none;
+		}
+		.extension-caption-select:focus-visible {
+			outline: 2px solid white;
+			outline-offset: 2px;
+			border-radius: 0.2rem;
+		}
+		.extension-caption-default {
+			cursor: pointer;
+		}
+		#extension-caption-settings-menu .extension-caption-default[data-highlighted],
+		#extension-caption-settings-menu .extension-caption-default:hover,
+		#extension-caption-settings-menu .extension-caption-default:focus-visible {
+			background: rgb(255 255 255 / 12%) !important;
+		}
 	`;
 	shadowRoot.append(hideStyle);
 
 	const nativePip = shadowRoot.querySelector<HTMLElement>('media-pip-button');
 	const pipGroup = nativePip?.parentElement;
 	if (nativePip && pipGroup) pipGroup.insertBefore(createCustomPipControls(), nativePip);
+	const settingsMenu = shadowRoot.querySelector<HTMLElement>('#settings-menu');
+	if (hlsMedia && settingsMenu) {
+		captionSettings = createCaptionSettings(hlsMedia, settingsMenu);
+		// Upload có thể hoàn tất trước frame khởi tạo shadow menu; trạng thái sẵn có
+		// phải được áp lại để mục Subtitle options không bị giữ hidden.
+		if (subtitleSource) captionSettings.setAvailable();
+	}
 };
 
 void chrome.tabs.getCurrent().then((tab) => {
@@ -214,7 +478,8 @@ if (!source) {
 	hlsMedia.setAttribute('preload', 'auto');
 	skin.append(hlsMedia);
 	const subtitleTools = createSubtitleTools(hlsMedia);
-	subtitleTools.prepend(createResolutionBadge(hlsMedia));
+	const resolutionBadge = createResolutionBadge(hlsMedia);
+	subtitleTools.append(resolutionBadge);
 	skin.append(subtitleTools);
 	player.append(skin);
 	root.append(player);
@@ -225,6 +490,7 @@ if (!source) {
 		const shadowRoot = skin.shadowRoot;
 		const controls = shadowRoot?.querySelector<HTMLElement>('.media-controls--primary .media-button-group:last-child');
 		const settings = controls?.querySelector<HTMLElement>('#settings-trigger');
+		const captions = controls?.querySelector<HTMLElement>('media-captions-button');
 		const subtitleTools = skin.querySelector<HTMLElement>(':scope > .player-subtitle-tools');
 
 		if (controls && settings && subtitleTools) {
@@ -232,6 +498,8 @@ if (!source) {
 			subtitleTools.style.display = 'contents';
 			controls.insertBefore(subtitleTools, settings);
 		}
+		// Badge nằm sau thời gian và sát nút captions, trước control upload phụ đề.
+		if (controls && captions) controls.insertBefore(resolutionBadge, captions);
 
 		replaceNativePip(skin);
 

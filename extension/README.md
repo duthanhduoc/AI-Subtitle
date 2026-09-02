@@ -8,8 +8,8 @@ Extension Chrome Manifest V3 di chuyển video HTML5 được chọn vào cửa 
 - Tái sử dụng phần tử video hiện có, tránh mở luồng thứ hai khi website cho phép.
 - Điều khiển PiP tùy chỉnh, không làm tối; tua, âm lượng, tốc độ phát và phím tắt.
 - Phát hiện playlist HLS `.m3u8` theo tab và mở MP4/HLS trong player page của extension.
-- Hiển thị độ phân giải video; player page nhận phụ đề SRT/VTT, còn Document PiP nhận SRT.
-- Phân tích phụ đề local và hiển thị nội dung không đáng tin cậy bằng API DOM an toàn.
+- Hiển thị độ phân giải video; player page nhận SRT/VTT và cho phép style native caption.
+- Custom PiP hiển thị native VTT track của video, không tạo renderer phụ đề thứ hai.
 - Không có backend, tài khoản, analytics, telemetry hoặc upload phụ đề. Request media chỉ được gửi tới máy chủ nguồn để phát video.
 
 ## Cài đặt và chạy
@@ -21,9 +21,9 @@ bun run build
 
 Mở `chrome://extensions`, bật Developer mode, chọn **Load unpacked** và chọn `dist/`.
 
-Với MP4 có URL trực tiếp, dùng nút **Play** trong popup. Với HLS, dùng **Play** trong phần **Detected HLS streams**. Cả hai mở player page của extension; nút phụ đề trong thanh điều khiển nhận file `.srt` hoặc `.vtt`, còn icon Custom PiP mở cửa sổ Picture-in-Picture.
+Với MP4 có URL trực tiếp, dùng nút **Play** trong popup. Với HLS, dùng **Play** trong phần **Detected HLS streams**. Cả hai mở player page của extension; nút phụ đề trong thanh điều khiển nhận file `.srt` hoặc `.vtt`, menu Settings mở các lựa chọn style native VTT, còn icon Custom PiP mở cửa sổ Picture-in-Picture.
 
-Phím tắt trong PiP: Space play/pause; Left/Right ±5s; J/L ±10s; M tắt tiếng; Up/Down âm lượng; `[`/`]` offset phụ đề.
+Phím tắt trong PiP: Space play/pause; Left/Right ±5s; J/L ±10s; M tắt tiếng; Up/Down âm lượng.
 
 ## Phát triển
 

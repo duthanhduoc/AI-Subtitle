@@ -26,6 +26,51 @@ video-skin {
 	position: relative;
 }
 
+.extension-caption-help-dialog {
+	width: min(22rem, calc(100vw - 2rem));
+	padding: 1.25rem;
+	color: #f8fafc;
+	background: #1e293b;
+	border: 1px solid rgb(255 255 255 / 20%);
+	border-radius: 0.75rem;
+	box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 55%);
+	font: 0.9rem/1.45 system-ui, sans-serif;
+}
+
+.extension-caption-help-dialog::backdrop {
+	background: rgb(0 0 0 / 48%);
+}
+
+.extension-caption-help-dialog h2,
+.extension-caption-help-dialog p {
+	margin: 0;
+}
+
+.extension-caption-help-dialog p + p {
+	margin-top: 0.6rem;
+}
+
+.extension-caption-help-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.5rem;
+	margin-top: 1.15rem;
+}
+
+.extension-caption-help-actions button {
+	padding: 0.45rem 0.65rem;
+	color: inherit;
+	background: transparent;
+	border: 1px solid rgb(255 255 255 / 28%);
+	border-radius: 0.4rem;
+	cursor: pointer;
+}
+
+.extension-caption-help-actions .extension-caption-help-open {
+	background: #2563eb;
+	border-color: #2563eb;
+}
+
 .player-subtitle-tools {
 	position: absolute;
 	right: 1.25rem;

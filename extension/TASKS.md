@@ -13,6 +13,7 @@
 - [x] Lấy HLS từ video đã chọn để ẩn các stream không liên quan từ player và quảng cáo.
 - [x] Đặt `Referer` cần thiết cho `surrit.com`; cookie media do trình duyệt tự gửi.
 - [x] Giữ Custom PiP dùng duy nhất native VTT track của video để không vẽ trùng subtitle.
+- [x] Thêm cài đặt nhanh native VTT caption trên controls của player page, gồm Default.
 - [x] Rút gọn menu cài đặt PiP, chỉ giữ điều khiển tốc độ phát.
 - [x] Tách markup và style của PiP player khỏi template string TypeScript.
 - [x] Triển khai di chuyển Document PiP, controls, phân tích SRT, chấm điểm candidate và unit test.
